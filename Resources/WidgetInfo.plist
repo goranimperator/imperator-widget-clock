@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>MacOSX</string>
+	</array>
+	<key>DTPlatformVersion</key>
+	<string>26.5</string>
+	<key>DTSDKBuild</key>
+	<string>25F74</string>
+	<key>DTXcode</key>
+	<string>2630</string>
+	<key>DTXcodeBuild</key>
+	<string>17E6107</string>
+	<key>BuildMachineOSBuild</key>
+	<string>25G74</string>
+	<key>DTCompiler</key>
+	<string>com.apple.compilers.llvm.clang.1_0</string>
+	<key>DTPlatformBuild</key>
+	<string></string>
+	<key>DTPlatformName</key>
+	<string>macosx</string>
+	<key>DTSDKName</key>
+	<string>macosx26.5</string>
+	<key>CFBundleDisplayName</key>
+	<string>ImperatorClock</string>
+	<key>CFBundleExecutable</key>
+	<string>ClockWidget</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.goranimperator.ImperatorClock.ClockWidget</string>
+	<key>CFBundleName</key>
+	<string>ImperatorClock</string>
+	<key>CFBundlePackageType</key>
+	<string>XPC!</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.widgetkit-extension</string>
+	</dict>
+</dict>
+</plist>

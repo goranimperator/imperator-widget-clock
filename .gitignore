@@ -1,0 +1,10 @@
+.DS_Store
+.build/
+.swiftpm/
+build/
+dist/
+*.app
+*.zip
+.claude/settings.local.json
+.unlazy/
+.unlazy-hook-state.json

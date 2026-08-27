@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Widget extensions must be sandboxed. Do NOT add
+	     com.apple.security.application-groups here: containermanagerd rejects a
+	     group whose identifier is not prefixed with the signing team ID, and the
+	     rejection kills the extension at sandbox init, before it can answer
+	     getAllDescriptors. The widget reads its settings from its own container
+	     instead, which needs no entitlement. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+</dict>
+</plist>
