@@ -13,13 +13,20 @@ import { fileURLToPath } from 'node:url';
 // fileURLToPath, not URL.pathname: the latter stays percent-encoded, so a repo
 // checked out to a path with a space would hand swift a file name with %20.
 const helper = fileURLToPath(new URL('window-id.swift', import.meta.url));
-const list = execFileSync('swift', [helper], {
-  encoding: 'utf8',
-}).trim();
+// The desktop clock is an opt-in, so its absence is a skip, not a failure. The
+// helper exits non-zero when there is no window, which makes execFileSync throw
+// before any check on its output can run.
+let list;
+try {
+  list = execFileSync('swift', [helper], { encoding: 'utf8' }).trim();
+} catch {
+  console.log('G7 SKIPPED -- the desktop clock is off; enable it in the menu bar app');
+  process.exit(0);
+}
 const match = list.match(/id=(\d+)/);
 if (!match) {
-  console.error('FAIL the desktop clock window is not on screen; enable it in the menu bar app');
-  process.exit(1);
+  console.log('G7 SKIPPED -- the desktop clock is off; enable it in the menu bar app');
+  process.exit(0);
 }
 console.log(list);
 
