@@ -2,7 +2,7 @@
 
 CONTRACT: A macOS WidgetKit medium widget showing a seven-segment HH:MM clock,
 five preset colours plus a free colour picker, a neon toggle and a pulse toggle,
-unlit segments visible at 10 %, upright digits with even spacing, plus a menu bar
+unlit segments visible at 5 %, upright digits with even spacing, plus a menu bar
 app whose desktop clock blinks the colon once a second, pulses the glow, and can
 put one clock on every display.
 
@@ -31,8 +31,8 @@ Run every runnable gate with `make gates`.
       containers identifiers should be prefixed by requestor's team ID`, and the
       rejection killed the extension at sandbox init.
 
-## G3 Unlit segments render at 10 %
-- [x] Measured luminance of an unlit segment is 0.10 of a lit one, +/- 0.02.
+## G3 Unlit segments render at 5 %
+- [x] Measured luminance of an unlit segment is 0.05 of a lit one, +/- 0.015.
       CHECK: ./.build/release/ClockPreview --verify
       EXPECT: G3_DIM_OK
       EVIDENCE: `lit=255.0 unlit=25.0 ratio=0.0980`

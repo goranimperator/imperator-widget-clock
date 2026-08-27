@@ -27,8 +27,8 @@ expect(/defaultCustomHex/.test(skinSource) && /components\(fromHex/.test(skinSou
   'ClockSkin cannot resolve a custom hex colour');
 
 const styleSource = read('Sources/ClockCore/ClockStyle.swift');
-expect(/dimOpacity: Double = 0\.10/.test(styleSource),
-  'ClockStyle.dimOpacity does not default to 0.10');
+expect(/dimOpacity: Double = 0\.05/.test(styleSource),
+  'ClockStyle.dimOpacity does not default to 0.05');
 expect(/glowLayers/.test(styleSource) && /neonCore/.test(styleSource),
   'ClockStyle is missing the neon core colour or the glow layers');
 expect(/neonCoreSaturation/.test(styleSource) && /neonCoreBrightness/.test(styleSource),

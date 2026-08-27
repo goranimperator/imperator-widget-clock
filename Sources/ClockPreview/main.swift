@@ -261,11 +261,11 @@ func commandVerifyDim() throws {
     guard lit > 200 else {
         throw RenderError.failed("lit segment measured \(lit), expected near 255")
     }
-    guard unlit > 4 else {
+    guard unlit > 2 else {
         throw RenderError.failed("unlit segment measured \(unlit); it must stay visible")
     }
-    guard abs(ratio - 0.10) <= 0.02 else {
-        throw RenderError.failed(String(format: "unlit/lit ratio %.4f is not 0.10 +/- 0.02", ratio))
+    guard abs(ratio - 0.05) <= 0.015 else {
+        throw RenderError.failed(String(format: "unlit/lit ratio %.4f is not 0.05 +/- 0.015", ratio))
     }
     // A digit-1 face must not light a, d, e, f or g anywhere.
     for (index, value) in unlitSamples.enumerated() where value > lit * 0.4 {

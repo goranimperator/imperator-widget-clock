@@ -6,7 +6,7 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var settings: ClockSettings
 
-    var body: some View {
+    private var content: some View {
         VStack(alignment: .leading, spacing: 14) {
             preview
 
@@ -95,7 +95,7 @@ struct SettingsView: View {
             Divider().overlay(Color.white.opacity(0.12))
 
             section("Widget") {
-                Text("Right-click the desktop, choose Edit Widgets, then search for Imperator Clock. Colour, glow and hour format are set on the widget itself: right-click it and choose Edit Widget.")
+                Text("Right-click the desktop, choose Edit Widgets, then search for ImperatorClock. Colour, glow and hour format are set here, not on the widget. If it looks grey, set System Settings, Desktop & Dock, Widgets, Widget style to Full colour.")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -113,6 +113,17 @@ struct SettingsView: View {
         }
         .padding(16)
         .frame(width: 330)
+    }
+
+    var body: some View {
+        // The popover sizes itself from this view's fitting height. Without the
+        // scroll view a tall settings list is clipped from the top, which hid
+        // the whole colour section.
+        ScrollView(.vertical) {
+            content
+        }
+        .frame(width: 330)
+        .frame(maxHeight: 620)
         .background(Color(white: 0.10))
     }
 

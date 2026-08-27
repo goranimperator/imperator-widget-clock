@@ -10,7 +10,7 @@ public struct ClockStyle: Equatable, Sendable {
     /// `.neon` / `.neon-<colour>` in imperator-deals `src/styles.css`.
     public var neon: Bool
     /// Brightness of a segment that is off, relative to one that is on.
-    /// Ten per cent: present, but never loud enough to read as lit.
+    /// Five per cent: there if you look, never loud enough to read as lit.
     public var dimOpacity: Double
     /// Multiplies the neon glow. 1 is the resting strength; the pulse rides
     /// between `ClockStyle.pulseFloor` and `ClockStyle.pulseCeiling`.
@@ -19,7 +19,7 @@ public struct ClockStyle: Equatable, Sendable {
     public init(skin: ClockSkin,
                 neon: Bool,
                 customHex: String = ClockSkin.defaultCustomHex,
-                dimOpacity: Double = 0.10,
+                dimOpacity: Double = 0.05,
                 glowScale: Double = 1) {
         self.skin = skin
         self.customHex = customHex
