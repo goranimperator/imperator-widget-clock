@@ -33,13 +33,6 @@ build:
 	cp Resources/AppIcon.icns "$(BUNDLE)/Contents/Resources/AppIcon.icns"
 	cp ".build/release/$(WIDGET_NAME)" "$(APPEX)/Contents/MacOS/$(WIDGET_NAME)"
 	cp Resources/WidgetInfo.plist "$(APPEX)/Contents/Info.plist"
-	# Xcode's appintentsmetadataprocessor is not on this machine, so the widget's
-	# App Intents metadata is written by hand. Without it the widget's Edit sheet
-	# has no controls at all.
-	node scripts/make-appintents-metadata.mjs "$(APPEX)"
-	# The containing app carries the same metadata. linkd indexes intents per
-	# app bundle, and an extension-only copy left the widget's Edit sheet empty.
-	node scripts/make-appintents-metadata.mjs "$(BUNDLE)"
 	# chronod caches a widget's descriptors against the extension's version, so a
 	# version that never moves means a reinstall keeps the old configuration.
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(STAMP)" "$(BUNDLE)/Contents/Info.plist"

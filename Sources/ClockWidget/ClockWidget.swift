@@ -1,21 +1,26 @@
-import AppIntents
 import ClockCore
 import SwiftUI
 import WidgetKit
 
-/// The widget's look is chosen on the widget itself: right-click it and pick
-/// Edit Widget. That sheet is built by WidgetKit from App Intents metadata,
-/// which Xcode normally generates and which `make build` writes by hand instead
-/// (see scripts/make-appintents-metadata.mjs).
+/// One widget per colour.
+///
+/// The obvious design is a single widget with a `WidgetConfigurationIntent`, so
+/// the colour is picked in the widget's own Edit sheet. That sheet is built from
+/// App Intents metadata, which Xcode generates with appintentsmetadataprocessor;
+/// hand-written metadata is indexed by `linkd` and does put `Edit "..."` in the
+/// widget's context menu, but the sheet still renders without controls. Until
+/// that is solved the gallery carries one card per colour instead, which needs
+/// no metadata and no settings app: the colour is chosen by choosing the card.
 struct ClockEntry: TimelineEntry {
     let date: Date
     let preferences: ClockPreferences
-    let colonLit: Bool
 
     var style: ClockStyle { preferences.style }
 }
 
-struct ClockProvider: AppIntentTimelineProvider {
+struct ClockProvider: TimelineProvider {
+    let skin: ClockSkin
+
     /// One entry per minute. Sub-minute entries were measured on macOS 26: ten
     /// window captures 0.22 s apart were byte-identical, so WidgetKit collapses
     /// anything finer and a half-second timeline only burns reload budget. The
@@ -23,20 +28,25 @@ struct ClockProvider: AppIntentTimelineProvider {
     private static let step: TimeInterval = 60
     private static let entryCount = 90
 
+    /// Colour comes from the widget's own kind. Everything else is shared, so a
+    /// custom hex or a changed hour format still reaches every card.
+    private func preferences() -> ClockPreferences {
+        var preferences = SharedStore.load()
+        preferences.skin = skin
+        return preferences
+    }
+
     func placeholder(in context: Context) -> ClockEntry {
-        ClockEntry(date: Date(), preferences: ClockPreferences(), colonLit: true)
+        ClockEntry(date: Date(), preferences: preferences())
     }
 
-    func snapshot(for configuration: ClockConfiguration, in context: Context) async -> ClockEntry {
-        let preferences = configuration.preferences
-        SharedStore.writeHeartbeat(preferences, family: "snapshot")
-        return ClockEntry(date: Date(), preferences: preferences, colonLit: true)
+    func getSnapshot(in context: Context, completion: @escaping (ClockEntry) -> Void) {
+        completion(ClockEntry(date: Date(), preferences: preferences()))
     }
 
-    func timeline(for configuration: ClockConfiguration,
-                  in context: Context) async -> Timeline<ClockEntry> {
-        let preferences = configuration.preferences
-        SharedStore.writeHeartbeat(preferences, family: "timeline")
+    func getTimeline(in context: Context, completion: @escaping (Timeline<ClockEntry>) -> Void) {
+        let preferences = preferences()
+        SharedStore.writeHeartbeat(preferences, family: skin.rawValue)
 
         let calendar = Calendar.current
         let now = Date()
@@ -46,10 +56,9 @@ struct ClockProvider: AppIntentTimelineProvider {
 
         let entries = (0..<ClockProvider.entryCount).map { index in
             ClockEntry(date: minuteStart.addingTimeInterval(Double(index) * ClockProvider.step),
-                       preferences: preferences,
-                       colonLit: true)
+                       preferences: preferences)
         }
-        return Timeline(entries: entries, policy: .atEnd)
+        completion(Timeline(entries: entries, policy: .atEnd))
     }
 }
 
@@ -59,7 +68,7 @@ struct ClockWidgetView: View {
     var body: some View {
         ClockPanelView(
             reading: ClockReading.reading(for: entry.date, format: entry.preferences.hourFormat),
-            colonLit: entry.colonLit,
+            colonLit: true,
             style: entry.style,
             padding: 0.06
         )
@@ -69,24 +78,42 @@ struct ClockWidgetView: View {
     }
 }
 
-struct RetroClockWidget: Widget {
-    let kind = "ImperatorRetroClock"
+/// A gallery card for one colour. `kind` must stay stable: it is how WidgetKit
+/// identifies a placed widget, so renaming one drops it off the desktop.
+struct ColourClockWidget: Widget {
+    /// Defaulted so the struct still has the `init()` that `Widget` requires.
+    var skin: ClockSkin = .purple
+
+    var kind: String { "ImperatorClock.\(skin.rawValue)" }
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind,
-                               intent: ClockConfiguration.self,
-                               provider: ClockProvider()) { entry in
+        StaticConfiguration(kind: kind, provider: ClockProvider(skin: skin)) { entry in
             ClockWidgetView(entry: entry)
         }
-        .configurationDisplayName("ImperatorClock")
-        .description("Seven-segment retro clock. Right-click and choose Edit Widget to pick the colour and the glow.")
+        .configurationDisplayName(displayName)
+        .description(summary)
         .supportedFamilies([.systemMedium])
+    }
+
+    private var displayName: String {
+        skin == .custom ? "Clock, custom colour" : "Clock, \(skin.displayName)"
+    }
+
+    private var summary: String {
+        skin == .custom
+            ? "Seven-segment retro clock in a colour of your own, picked in the ImperatorClock app."
+            : "Seven-segment retro clock in \(skin.displayName)."
     }
 }
 
 @main
 struct ClockWidgetBundle: WidgetBundle {
     var body: some Widget {
-        RetroClockWidget()
+        ColourClockWidget(skin: .purple)
+        ColourClockWidget(skin: .red)
+        ColourClockWidget(skin: .green)
+        ColourClockWidget(skin: .blue)
+        ColourClockWidget(skin: .white)
+        ColourClockWidget(skin: .custom)
     }
 }

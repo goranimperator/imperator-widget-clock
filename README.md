@@ -36,9 +36,14 @@ Builds release into `build/ImperatorClock.app`, codesigns the widget extension
 and the app, installs to `/Applications`, and launches. Then add the widget:
 right-click the desktop, choose Edit Widgets, and search for ImperatorClock.
 
-Colour, neon glow and hour format live in the menu bar popover and apply to both
-surfaces. Changing them asks WidgetKit for a fresh timeline, so the widget
-catches up immediately.
+The gallery carries one card per colour, so the widget's colour is picked when
+it is placed. Glow, pulse, hour format and the custom hex live in the menu bar
+popover and apply to both surfaces; changing them asks WidgetKit for a fresh
+timeline, so the widget catches up immediately.
+
+macOS renders desktop widgets in greyscale unless System Settings, Desktop &
+Dock, Widgets, Widget style is set to Full colour. A widget cannot override
+that: `WidgetRenderingMode` is handed to it, not chosen by it.
 
 ```bash
 make run
@@ -54,8 +59,10 @@ regenerates `Resources/AppIcon.icns` from the clock renderer itself, and
 
 ## Settings and where they live
 
-Colour, glow, pulse and hour format go to a JSON file inside the widget
-extension's own sandbox container:
+The widget's colour is chosen by choosing which card you drag out of the
+gallery: there is one per colour. Everything else, glow, pulse, hour format and
+the custom colour's hex, goes to a JSON file inside the widget extension's own
+sandbox container:
 
 ```
 ~/Library/Containers/com.goranimperator.ImperatorClock.ClockWidget/Data/Library/Application Support/ImperatorClock/settings.json

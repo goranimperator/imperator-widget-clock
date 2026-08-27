@@ -35,11 +35,19 @@ design:
    `Resources/WidgetInfo.plist` beside it, signs the appex with the sandbox
    entitlement, then signs the app around it. Inside out, always.
 2. **No App Intents metadata.** `appintentsmetadataprocessor` ships only with
-   Xcode. Without it there is no `Metadata.appintents`, and a
-   `WidgetConfigurationIntent` would give the widget an empty Edit sheet. So the
-   widget is a `StaticConfiguration` that reads its look from the App Group
-   settings file. Do not reintroduce an AppIntent-configured widget unless full
-   Xcode is available and verified.
+   Xcode. The metadata is plain JSON and was hand-written once
+   (`git show a0ee5d4`): `linkd` accepted it, logged
+   `✓ Completed indexing transaction`, and the widget's context menu gained
+   `Edit "ImperatorClock"`. The sheet still rendered without controls, and the
+   log carries `Unable to get teamId from com.goranimperator.ImperatorClock`,
+   which a self-signed certificate cannot supply. So the colour is carried by
+   the widget's `kind` instead: `WidgetBundle` publishes one
+   `StaticConfiguration` per colour and the gallery shows one card each. Do not
+   reintroduce an AppIntent-configured widget unless full Xcode is available and
+   the Edit sheet is verified to render its controls.
+
+   A widget's `kind` is how WidgetKit identifies a placed widget. Renaming one
+   empties its slot on the desktop and the user has to place it again.
 
 ## Architecture
 
@@ -51,8 +59,8 @@ Four targets:
 - **`ImperatorClock`** — menu bar app (`LSUIElement`, `.accessory`). Status item
   with a settings popover, plus `DesktopClockWindow`, a borderless `NSPanel` at
   desktop-icon level whose `TimelineView(.periodic(by: 0.5))` blinks the colon.
-- **`ClockWidget`** — the WidgetKit extension. Medium family only, one timeline
-  entry per minute, 90 entries per request.
+- **`ClockWidget`** — the WidgetKit extension. One widget per colour, medium
+  family only, one timeline entry per minute, 90 entries per request.
 - **`ClockPreview`** — headless renderer. Produces the review PNGs, the app icon,
   and the pixel measurements behind gates G3 and G7. Never shipped.
 
