@@ -54,11 +54,11 @@ public struct SegmentMask: OptionSet, Sendable, Hashable {
 /// these usually imitate.
 public enum ClockLayout {
     public static let digitWidth: CGFloat = 1.0
-    public static let digitHeight: CGFloat = 2.40
+    public static let digitHeight: CGFloat = 2.118
 
     /// Segment weight. Deliberately heavy, matching the thick reference face
     /// rather than the hairline segments of the macOS screen saver.
-    public static let thickness: CGFloat = 0.22
+    public static let thickness: CGFloat = 0.1957
 
     /// Breathing room between two segments that meet. One value for every
     /// junction, so the channel at a corner and the channel around the middle
@@ -76,13 +76,16 @@ public enum ClockLayout {
     /// Space between any two neighbours on the face. One value, so the gap
     /// between the digits of a pair and the gap on either side of the colon are
     /// identical; two different values read as a spacing mistake.
-    public static let gap: CGFloat = 0.19
+    public static let gap: CGFloat = 0.1943
     public static let pairGap: CGFloat = gap
     public static let colonGap: CGFloat = gap
     /// Width of the colon column.
-    public static let colonWidth: CGFloat = 0.34
+    public static let colonWidth: CGFloat = 0.2128
     /// Diameter of a colon dot.
-    public static let colonDot: CGFloat = 0.27
+    /// Derived, not a number of its own: a colon dot is exactly as thick as a
+    /// segment, and tying it to `thickness` keeps it that way through any later
+    /// change to the face's proportions.
+    public static let colonDot: CGFloat = thickness
     /// Corner rounding of a colon dot, as a fraction of its own size.
     public static let colonDotRounding: CGFloat = 0.32
     /// Vertical centres of the two colon dots, as a fraction of digit height.

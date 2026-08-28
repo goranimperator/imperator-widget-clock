@@ -32,11 +32,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setUpStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let symbol = NSImage(systemSymbolName: "clock", accessibilityDescription: "Imperator WidgetClock")
-        symbol?.isTemplate = true
-        item.button?.image = symbol?.withSymbolConfiguration(
-            NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
-        )
+        item.button?.image = StatusItemIcon.make()
+        item.button?.toolTip = "Imperator WidgetClock"
         item.button?.target = self
         item.button?.action = #selector(togglePopover)
         statusItem = item

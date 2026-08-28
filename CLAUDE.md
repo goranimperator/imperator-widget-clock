@@ -178,6 +178,30 @@ had to deviate or be built by hand:
 restoration otherwise puts a colour panel back on screen the moment the first
 colour well exists.
 
+## The menu bar icon
+
+`StatusItemIcon` draws the icon rather than taking `systemSymbolName: "clock"`.
+That symbol is a hairline circle with two thin hands, and on a 1x display, an
+external 2560x1440 panel for instance, the strokes fall between pixels and the
+glyph turns to mush. The drawn icon is the clock's own face reduced to a
+display outline with a lit colon, which lands on whole pixels at any scale. It
+is a template image, so macOS inverts it for light and dark menu bars.
+
+## Face proportions are in digit widths, and three of them are derived
+
+Everything in `ClockLayout` is a fraction of one digit's width, so widening a
+digit silently widens whatever else is expressed that way. That caught the
+stroke weight and the colon dot once each: asked for wider digits, the face came
+back with fatter strokes and a bigger colon too. `colonDot` is now
+`thickness` rather than a number of its own, and any change to the face's width
+has to hold `thickness`, `digitHeight` and `colonDot` steady in pixels unless
+the change is meant to scale everything.
+
+The face is width-constrained inside a medium widget: `faceWidth` is about five
+digit widths against roughly 350 usable points. Extra spacing between digits
+therefore comes out of the outer padding and the digits themselves, never for
+free.
+
 ## Conventions
 
 English only in filenames, comments and file content. No em dashes or en dashes

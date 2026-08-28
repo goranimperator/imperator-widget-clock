@@ -65,7 +65,7 @@ struct ClockWidgetView: View {
         ClockPanelView(
             reading: ClockReading.reading(for: entry.date, format: entry.preferences.hourFormat),
             style: entry.style,
-            padding: 0.06
+            padding: 0.01
         )
         .containerBackground(for: .widget) {
             ClockStyle.faceBackground
