@@ -4,7 +4,7 @@ WIDGET_NAME = ClockWidget
 BUNDLE      = build/$(APP_NAME).app
 APPEX       = $(BUNDLE)/Contents/PlugIns/$(WIDGET_NAME).appex
 DIST        = dist
-ZIP         = $(DIST)/ImperatorWidgetClock-$(VERSION).zip
+ZIP         = $(DIST)/Imperator-WidgetClock-$(VERSION).zip
 BUILD_NUMBER = $(shell git rev-list --count HEAD 2>/dev/null || echo 1)
 # `release` commits before it tags, but every variable expands first, so the
 # tagged build needs the count plus that commit. `dist` alone commits nothing,
