@@ -6,6 +6,10 @@ APPEX       = $(BUNDLE)/Contents/PlugIns/$(WIDGET_NAME).appex
 DIST        = dist
 ZIP         = $(DIST)/ImperatorWidgetClock-$(VERSION).zip
 BUILD_NUMBER = $(shell git rev-list --count HEAD 2>/dev/null || echo 1)
+# `release` commits before it tags, but every variable expands first, so the
+# tagged build needs the count plus that commit. `dist` alone commits nothing,
+# and there the plain count is right.
+RELEASE_BUILD_NUMBER = $(shell git rev-list --count HEAD 2>/dev/null | awk '{print $$1 + 1}')
 # Monotonic per-build stamp, so every install looks like a new version to WidgetKit.
 # Seconds since a fixed recent epoch: monotonic, and short enough to stay a
 # valid CFBundleVersion. A 14-digit timestamp is rejected and the extension
@@ -105,10 +109,10 @@ dist: check-version build
 release: check-version
 	@git diff --quiet && git diff --cached --quiet || { echo "Working tree dirty -- commit first."; exit 1; }
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" Resources/Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(BUILD_NUMBER)" Resources/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(RELEASE_BUILD_NUMBER)" Resources/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" Resources/WidgetInfo.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(BUILD_NUMBER)" Resources/WidgetInfo.plist
-	$(MAKE) dist VERSION=$(VERSION)
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(RELEASE_BUILD_NUMBER)" Resources/WidgetInfo.plist
+	$(MAKE) dist VERSION=$(VERSION) BUILD_NUMBER=$(RELEASE_BUILD_NUMBER)
 	git add Resources/Info.plist Resources/WidgetInfo.plist
 	git commit -m "Release v$(VERSION)"
 	git tag -a v$(VERSION) -m "$(APP_NAME) $(VERSION)"
@@ -116,6 +120,6 @@ release: check-version
 	git push origin v$(VERSION)
 	gh release create v$(VERSION) \
 		--title "$(APP_NAME) $(VERSION)" \
-		--notes "Seven-segment retro clock as a macOS desktop widget, plus a menu bar app whose desktop clock blinks the colon once a second. Five colours, optional neon glow, unlit strokes visible at 25 percent. Signed with a self-signed certificate and not notarized, so Gatekeeper blocks the first launch: right-click the app and choose Open, or run \`xattr -dr com.apple.quarantine \"/Applications/$(APP_NAME).app\"\`." \
+		--notes "A seven-segment retro clock as a macOS desktop widget, with a menu bar app that holds its settings. Six colours including one you pick yourself, an optional neon glow, and unlit strokes held at 5 percent so the face reads like a real LCD. Signed with a self-signed certificate and not notarized, so Gatekeeper blocks the first launch: right-click the app and choose Open, or run \`xattr -dr com.apple.quarantine \"/Applications/$(APP_NAME).app\"\`." \
 		"$(ZIP)#$(APP_NAME) $(VERSION) (macOS)"
 	@echo "Released v$(VERSION)"

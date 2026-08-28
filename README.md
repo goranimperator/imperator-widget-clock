@@ -19,9 +19,20 @@ Arcade Green, Neon Blue, Classic White, Electric Purple), a sixth swatch that
 opens the system colour wheel, and an optional neon glow ported from the `.neon`
 rule in imperator-deals.
 
-Requires macOS 14 or later.
+Requires macOS 14 or later, Apple silicon. Built and tested on macOS 26 only:
+older versions are expected to work but have not been verified.
+
+Install at your own risk. The app is not notarized and carries no Apple
+Developer signature, so macOS cannot vouch for it. It is provided as is, with no
+warranty, under the MIT license.
 
 ## Install
+
+Download the latest zip from
+[Releases](https://github.com/goranimperator/imperator-widget-clock/releases),
+unzip, and move `Imperator WidgetClock.app` to `/Applications`.
+
+To build it yourself instead:
 
 ```bash
 make install
