@@ -19,7 +19,7 @@ STAMP = $(shell echo $$(( $$(date +%s) - 1750000000 )))
 # widget disappear from the gallery after an update.
 CODESIGN_IDENTITY ?= Imperator Dev
 
-.PHONY: all build clean run install preview icon dist release check-version gates
+.PHONY: all build clean run install preview dist release check-version gates
 
 all: build
 
@@ -59,10 +59,6 @@ preview:
 	swift build -c release
 	./.build/release/ClockPreview --render build/preview
 	open build/preview
-
-# Regenerates Resources/AppIcon.icns from the clock renderer itself.
-icon:
-	./scripts/make-icon.sh
 
 # Every runnable gate in GATES.md, in order. G8 is a visual review.
 gates: build

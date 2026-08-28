@@ -1,7 +1,13 @@
-# Imperator WidgetClock
+<p align="center">
+  <img src="Resources/AppIcon.png" width="128" height="128" alt="Imperator WidgetClock app icon">
+</p>
 
-A seven-segment retro clock for the macOS desktop. One WidgetKit widget, plus a
-menu bar app that holds its settings.
+<h1 align="center">Imperator WidgetClock</h1>
+
+<p align="center">
+  A seven-segment retro clock for the macOS desktop. One WidgetKit widget, plus
+  a menu bar app that holds its settings.
+</p>
 
 The face is drawn from real segment outlines rather than a font, so the unlit
 strokes stay visible at 5 percent the way the bars of an LCD clock never go
@@ -99,7 +105,6 @@ targets:
 ```bash
 make run       # build and launch from build/ without installing
 make preview   # render the face to build/preview and open it
-make icon      # regenerate Resources/AppIcon.icns from the renderer itself
 make gates     # run every acceptance check in GATES.md
 make clean
 ```

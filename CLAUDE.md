@@ -23,7 +23,6 @@ container, which is where the shared settings file lives.
 ```bash
 make run
 make preview
-make icon
 make gates
 swift build
 ```
