@@ -1,22 +1,19 @@
 # Imperator WidgetClock
 
-A seven-segment retro clock for macOS: a desktop widget, plus a menu bar app
-that holds its settings.
+A seven-segment retro clock for the macOS desktop. One WidgetKit widget, plus a
+menu bar app that holds its settings.
 
-Unlit strokes stay visible at 5 %, the way the bars of a real LCD clock never
-go fully dark. Five preset colours shared with the rest of the Imperator apps,
-a free colour picker, a neon glow ported from the `.neon` rule in
-imperator-deals.
+The face is drawn from real segment outlines rather than a font, so the unlit
+strokes stay visible at 5 percent the way the bars of an LCD clock never go
+fully dark. The digits stand upright: most LED clock faces lean, this one does
+not.
 
-The digits stand upright. Most LED clock faces lean; this one does not.
+Five preset colours shared with the rest of the Imperator apps (Imperator Red,
+Arcade Green, Neon Blue, Classic White, Electric Purple), a sixth swatch that
+opens the system colour wheel, and an optional neon glow ported from the `.neon`
+rule in imperator-deals.
 
-## Why the colon does not blink
-
-A WidgetKit widget is a still frame that the system renders in advance and swaps
-on a schedule, and its reload budget is measured in dozens of refreshes a day.
-One blink a second needs 86 400. Half-second timeline entries were tried and
-measured: ten window captures 0.22 s apart were byte-identical, because macOS
-collapses anything finer than a minute. So the colon stays lit.
+Requires macOS 14 or later.
 
 ## Install
 
@@ -24,73 +21,163 @@ collapses anything finer than a minute. So the colon stays lit.
 make install
 ```
 
-Builds release into `build/Imperator WidgetClock.app`, codesigns the widget extension
-and the app, installs to `/Applications`, and launches. Then add the widget:
-right-click the desktop, choose Edit Widgets, and search for Imperator WidgetClock.
+That builds release, assembles `build/Imperator WidgetClock.app`, signs the
+widget extension and then the app, copies it to `/Applications` and launches it.
+The `Makefile` is the only build path.
 
-The gallery carries one card. Colour, glow and hour format all live in
-the menu bar popover and apply to both surfaces; changing one asks WidgetKit for
-a fresh timeline, so the widget catches up immediately.
+Then place the widget: right-click the desktop, choose Edit Widgets, search for
+Imperator WidgetClock, and drag the card out. There is one card, in the medium
+size.
 
-macOS renders desktop widgets in greyscale unless System Settings, Desktop &
-Dock, Widgets, Widget style is set to Full colour. A widget cannot override
-that: `WidgetRenderingMode` is handed to it, not chosen by it.
+Two things worth knowing on first run:
+
+- macOS renders desktop widgets in greyscale unless System Settings, Desktop &
+  Dock, Widgets, Widget style is set to Full colour. The widget cannot override
+  this. `WidgetRenderingMode` is handed to it, not chosen by it.
+- The build is signed with a self-signed certificate and is not notarized, so
+  Gatekeeper blocks the first launch of a downloaded copy. Right-click the app
+  and choose Open, or run:
 
 ```bash
-make run
-make preview
-make icon
-make gates
+xattr -dr com.apple.quarantine "/Applications/Imperator WidgetClock.app"
+```
+
+## Settings
+
+Everything lives in the menu bar popover, and everything applies to the widget:
+
+| Setting | What it does |
+|---|---|
+| Colour | Five presets, plus a sixth swatch that opens the system colour wheel |
+| Neon glow | A near-white core inside three stacked coloured halos |
+| Hours | System, 24-hour or 12-hour. System follows the locale |
+| Open at Login | Registers a login item through `SMAppService` |
+
+Changing any of them writes the shared settings file and asks WidgetKit for a
+fresh timeline, so the widget catches up at once rather than waiting out its
+current one. The writes are coalesced: dragging in the colour wheel fires
+continuously, and one reload per tick would spend the daily reload budget in a
+few seconds.
+
+The popover follows the
+[Imperator apps brandbook](https://github.com/goranimperator/imperator-apps-brandbook):
+header, divider, content, divider, footer, 340pt wide, forced dark, brand red
+instead of the system accent.
+
+## Why the colon does not blink
+
+A WidgetKit widget is a still frame that the system renders in advance and swaps
+on a schedule. Its reload budget is measured in dozens of refreshes a day, and
+one blink a second would need 86 400.
+
+This was measured rather than assumed. With half-second timeline entries, ten
+window captures taken 0.22 seconds apart came back byte-identical, because macOS
+collapses anything finer than a minute. So the colon stays lit, the widget takes
+one timeline entry per minute, and there is no pulse and no blink anywhere in
+the code.
+
+An earlier version drew a second clock straight onto the desktop, in a
+borderless panel that did blink and pulse. It was removed: the clock is a widget
+and nothing else.
+
+## How it is built
+
+There is no Xcode on the machine this was written on, only the Command Line
+Tools, so there is no `.xcodeproj` and no `xcodebuild`. It is SwiftPM plus
+Makefile bundle assembly, the same shape as the other Imperator apps. Four
+targets:
+
+- **`ClockCore`** is the whole face: segment geometry, the lit and unlit paths,
+  the colour and glow rules, and the app/widget settings contract.
+- **`ImperatorClock`** is the menu bar app. `LSUIElement`, so no Dock icon and
+  no app switcher entry. A status item and a settings popover, nothing more.
+- **`ClockWidget`** is the widget extension. One widget, medium family only, one
+  timeline entry per minute, 90 entries per request.
+- **`ClockPreview`** is a headless renderer that produces the review PNGs, the
+  app icon and the pixel measurements behind the gates. It never ships.
+
+```bash
+make run       # build and launch from build/ without installing
+make preview   # render the face to build/preview and open it
+make icon      # regenerate Resources/AppIcon.icns from the renderer itself
+make gates     # run every acceptance check in GATES.md
 make clean
 ```
 
-`make preview` renders the face to `build/preview` and opens it, `make icon`
-regenerates `Resources/AppIcon.icns` from the clock renderer itself, and
-`make gates` runs every acceptance check in `GATES.md`.
+Assembling an appex by hand has two traps, both of which make the widget
+register with `pluginkit` and then render nothing, which looks exactly like a
+widget that was never installed:
 
-## Settings and where they live
+1. Every shipping macOS widget binary references `_NSExtensionMain`. A SwiftPM
+   executable does not, so WidgetKit's `@main` falls into ExtensionFoundation,
+   fails to recognise the extension type, and the process exits before it can
+   answer `getAllDescriptors`. `Package.swift` links the widget with
+   `-e _NSExtensionMain` for this reason.
+2. `containermanagerd` rejects an App Group whose identifier is not prefixed
+   with the signing team ID, and a self-signed build has no team. The rejection
+   is fatal, so the extension died at sandbox init after 44 ms.
 
-Colour, glow, hour format and the custom colour's hex go to a JSON file
-inside the widget extension's own sandbox container:
+## Where the settings live
+
+Not in an App Group, for the reason above. The file sits inside the widget
+extension's own sandbox container:
 
 ```
 ~/Library/Containers/com.goranimperator.ImperatorClock.ClockWidget/Data/Library/Application Support/ImperatorClock/settings.json
 ```
 
-An extension may always read its own container, and the app is not sandboxed, so
-it writes there by absolute path. An App Group was the obvious choice and does
-not work here: `containermanagerd` refuses a group whose identifier is not
-prefixed with the signing team ID, and a self-signed build has no team. Worse,
-the refusal is fatal, so the widget died at sandbox init and rendered nothing.
+An extension may always read its own container, and the menu bar app is not
+sandboxed, so it writes there by absolute path. Same file, both sides, no
+entitlement involved. That file is the whole of the app's state.
 
-That file is the whole of the app's state.
+The widget also writes a heartbeat next to it every time WidgetKit asks it for a
+timeline. It is the only evidence from outside that the extension really ran and
+what it read, and the acceptance check for the shared store reads it.
+
+## Gates
+
+`GATES.md` is the acceptance ledger: one observable outcome per gate, each with
+the command that decides it. `make gates` runs every runnable one. Two of them
+need the installed bundle, and one of those also needs the widget to be placed.
+
+Registration is not accepted as proof of life. The extension was registered for
+hours at one point while exiting after 44 ms, so the live check reads the
+heartbeat and checks chronod's own verdict on the descriptor query:
+
+```bash
+node scripts/check-widget-live.mjs
+```
+
+When the widget looks dead, read the real logs. `log` is a zsh builtin that
+shadows the tool, so call it by path:
+
+```bash
+/usr/bin/log show --last 5m --info --debug --predicate 'process == "chronod"' --style compact
+```
+
+`getAllDescriptors result.` means the extension answered. `error result` means
+it died first.
 
 ## Release
 
-Follow the `imperator-release` skill. Audit first, tag last, never without
-Goran's explicit word in that message.
+Follow the `imperator-release` skill. Audit first, tag last, and never without
+an explicit instruction.
 
 ```bash
 make dist VERSION=x.y.z
 make release VERSION=x.y.z
 ```
 
-`dist` is safe: it touches nothing in git or on the remote. `release` bumps both
+`dist` is safe and touches nothing in git or on the remote. `release` bumps both
 `Info.plist` files, commits, tags, pushes and publishes a GitHub release with
-the zip attached.
+the zip attached. Both plists have to move together: the appex version is what
+chronod caches a widget's descriptors against, so a version that never changes
+means a reinstall keeps the old configuration.
 
-Signing uses the self-signed `Imperator Dev` identity, not ad-hoc. The app
-registers a login item via `SMAppService`, and that registration is keyed to the
-bundle's designated requirement. WidgetKit also caches the extension by its
-signing identity, so an ad-hoc cdhash that changes on every build would drop the
-widget out of the gallery after an update.
-
-Not notarized, so Gatekeeper blocks the first launch of a downloaded build:
-right-click the app and choose Open, or
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/Imperator WidgetClock.app"
-```
+Signing uses the self-signed `Imperator Dev` identity rather than ad-hoc. The
+login item registration is keyed to the bundle's designated requirement, and
+WidgetKit caches the extension by its signing identity, so an ad-hoc cdhash that
+changes on every build would drop the widget out of the gallery after an update.
 
 ## Licence
 
