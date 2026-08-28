@@ -11,9 +11,14 @@ The `Makefile` is the only build path. Do not add a second one.
 make install
 ```
 
-Builds release into `build/ImperatorClock.app`, signs the widget extension and
-then the app, installs to `/Applications`, and launches. `make install` kills any
-running instance first.
+Builds release into `build/Imperator WidgetClock.app`, signs the widget
+extension and then the app, installs to `/Applications`, and launches.
+`make install` kills any running instance first.
+
+The bundle is named after the app, "Imperator WidgetClock", the same way the
+other Imperator apps are. The SwiftPM product, the executable and the bundle
+identifier all stay `ImperatorClock`: the identifier keys the widget's sandbox
+container, which is where the shared settings file lives.
 
 ```bash
 make run
@@ -40,11 +45,13 @@ design:
    `✓ Completed indexing transaction`, and the widget's context menu gained
    `Edit "ImperatorClock"`. The sheet still rendered without controls, and the
    log carries `Unable to get teamId from com.goranimperator.ImperatorClock`,
-   which a self-signed certificate cannot supply. So the colour is carried by
-   the widget's `kind` instead: `WidgetBundle` publishes one
-   `StaticConfiguration` per colour and the gallery shows one card each. Do not
-   reintroduce an AppIntent-configured widget unless full Xcode is available and
-   the Edit sheet is verified to render its controls.
+   which a self-signed certificate cannot supply. One `StaticConfiguration` per
+   colour was tried next and worked, but six near-identical gallery cards for a
+   choice the menu bar app already owns is worse than one card. So the bundle
+   publishes a single widget that reads the shared settings file, and the app is
+   the only place settings live. Do not reintroduce an AppIntent-configured
+   widget unless full Xcode is available and the Edit sheet is verified to
+   render its controls.
 
    A widget's `kind` is how WidgetKit identifies a placed widget. Renaming one
    empties its slot on the desktop and the user has to place it again.
@@ -53,22 +60,23 @@ design:
 
 Four targets:
 
-- **`ClockCore`** — the whole face. `SegmentGeometry` builds the seven-segment
+- **`ClockCore`**: the whole face. `SegmentGeometry` builds the seven-segment
   outlines, `ClockFace` turns a time into lit and unlit paths, `ClockStyle`
   carries the colour and the neon glow, `SharedStore` is the app/widget contract.
-- **`ImperatorClock`** — menu bar app (`LSUIElement`, `.accessory`). Status item
-  with a settings popover, plus `DesktopClockWindow`, a borderless `NSPanel` at
-  desktop-icon level whose `TimelineView(.periodic(by: 0.5))` blinks the colon.
-- **`ClockWidget`** — the WidgetKit extension. One widget per colour, medium
-  family only, one timeline entry per minute, 90 entries per request.
-- **`ClockPreview`** — headless renderer. Produces the review PNGs, the app icon,
-  and the pixel measurements behind gates G3 and G7. Never shipped.
+- **`ImperatorClock`**: menu bar app (`LSUIElement`, `.accessory`). A status
+  item and a settings popover, nothing else. It draws nothing on the desktop;
+  the widget is the clock.
+- **`ClockWidget`**: the WidgetKit extension. One widget, medium family only,
+  one timeline entry per minute, 90 entries per request. Everything it draws
+  comes from the shared settings file.
+- **`ClockPreview`**: headless renderer. Produces the review PNGs, the app icon,
+  and the pixel measurement behind gate G3. Never shipped.
 
 ### The face
 
 `ClockGhostShape` draws every segment of every digit plus both colon dots.
 `ClockLitShape` draws only the ones that are on. The ghost sits underneath at
-`ClockStyle.dimOpacity`, which is 0.25 — that is the "unlit strokes still
+`ClockStyle.dimOpacity`, which is 0.05: that is the "unlit strokes still
 visible" requirement, and gate G3 measures it in the rendered pixels rather than
 trusting the constant.
 
@@ -84,13 +92,17 @@ Colours match `Skin` in imperator-retropong. `litColor` pushes brightness to ful
 in HSB and leaves hue and saturation alone; lifting towards white instead turned
 Imperator Red into pink.
 
-### Why the widget cannot blink
+### Why nothing animates
 
 Measured, not assumed: with half-second timeline entries, ten window captures
 0.22 s apart were byte-identical. WidgetKit collapses sub-minute entries on
-macOS 26, so the widget shows a steady colon and one entry per minute, and the
-desktop window does the blinking and the pulsing. Do not try to "fix" this with
-second-resolution entries; it only burns reload budget.
+macOS 26, and the reload budget is dozens of refreshes a day against the 86 400
+that one blink a second would need. So the colon is always lit, and there is no
+pulse and no blink anywhere in the code. A desktop window that did animate was
+built and then removed on request: the clock is a widget and nothing else.
+
+Do not reintroduce either as a setting. Gate G2 fails on the words `pulse` and
+`colonLit` in `ClockStyle`, `SharedStore` and `SettingsView` for that reason.
 
 ## Two traps that cost a whole afternoon
 
@@ -122,18 +134,15 @@ died first.
 ## Gates
 
 `GATES.md` holds the acceptance ledger. `make gates` runs every runnable check.
-Two of them need the installed bundle and a placed widget:
+One of them needs the installed bundle and a placed widget:
 
 ```bash
 node scripts/check-widget-live.mjs
-node scripts/check-desktop-blink.mjs
 ```
 
-The first refuses to accept registration as proof: it reads the heartbeat the
-widget writes from `getTimeline` and checks chronod's own verdict on the
-descriptor query. The second captures the desktop clock **by window id**, since
-the clock sits below every other window and a screen grab would photograph
-whatever is on top of it.
+It refuses to accept registration as proof: it reads the heartbeat the widget
+writes from `getTimeline` and checks chronod's own verdict on the descriptor
+query.
 
 `--widget-status` on the app binary prints what WidgetKit has installed and
 forces a timeline reload.
@@ -143,6 +152,31 @@ forces a timeline reload.
 Follow the `imperator-release` skill. Audit first, tag last, never without
 Goran's explicit word in that message. `release` bumps **both** `Info.plist`
 files; the appex version has to move with the app.
+
+## The settings popover
+
+Built to the Imperator apps brandbook (`~/Code/imperator/imperator-apps-brandbook`):
+header, divider, scrolling content, divider, footer; 340pt wide; forced dark;
+every toggle a brand-red `.switch` at 0.55 scale in a 36x20 frame. Three details
+had to deviate or be built by hand:
+
+1. **The popover is `.applicationDefined`, not `.transient`.** NSColorPanel is a
+   window of its own, and a transient popover closes the moment the panel takes
+   key, which drops every colour picked. A global mouse monitor restores the
+   click-outside dismissal, and it stands down while the colour panel is up.
+2. **The colour picker is `NSColorPanel` driven directly**, not SwiftUI's
+   `ColorPicker`. Its colour well draws a pill that does not match the swatch
+   row, and inside an `.accessory` app's popover clicking it focuses the well
+   without bringing the panel up. `ColorPanelController` sets the target, calls
+   `NSApp.activate` and orders the panel front itself.
+3. **`HourFormatPicker` replaces `.pickerStyle(.segmented)`.** The system control
+   sizes itself to its widest label and centres the remainder, so it will not
+   fill the row.
+
+`AppleAccentColor` is pinned to 0 in `applicationWillFinishLaunching`, and
+`NSColorPanel.shared.isRestorable` is switched off in the same place: window
+restoration otherwise puts a colour panel back on screen the moment the first
+colour well exists.
 
 ## Conventions
 

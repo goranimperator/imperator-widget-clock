@@ -7,19 +7,15 @@ public struct ClockPreferences: Codable, Equatable, Sendable {
     /// Used when `skin` is `.custom`. Six hex digits, no leading hash.
     public var customHex: String
     public var neon: Bool
-    /// Only meaningful with `neon` on: the glow swells once a second.
-    public var pulse: Bool
     public var hourFormat: ClockHourFormat
 
     public init(skin: ClockSkin = .purple,
                 customHex: String = ClockSkin.defaultCustomHex,
-                neon: Bool = true,
-                pulse: Bool = false,
+                neon: Bool = false,
                 hourFormat: ClockHourFormat = .system) {
         self.skin = skin
         self.customHex = customHex
         self.neon = neon
-        self.pulse = pulse
         self.hourFormat = hourFormat
     }
 
@@ -31,25 +27,18 @@ public struct ClockPreferences: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         skin = (try? container.decodeIfPresent(ClockSkin.self, forKey: .skin)) as? ClockSkin ?? .purple
-        customHex = (try? container.decodeIfPresent(String.self, forKey: .customHex))
+        let storedHex = (try? container.decodeIfPresent(String.self, forKey: .customHex))
             as? String ?? ClockSkin.defaultCustomHex
-        neon = (try? container.decodeIfPresent(Bool.self, forKey: .neon)) as? Bool ?? true
-        pulse = (try? container.decodeIfPresent(Bool.self, forKey: .pulse)) as? Bool ?? false
+        customHex = storedHex.caseInsensitiveCompare(ClockSkin.legacyCustomHex) == .orderedSame
+            ? ClockSkin.defaultCustomHex
+            : storedHex
+        neon = (try? container.decodeIfPresent(Bool.self, forKey: .neon)) as? Bool ?? false
         hourFormat = (try? container.decodeIfPresent(ClockHourFormat.self, forKey: .hourFormat))
             as? ClockHourFormat ?? .system
     }
 
     public var style: ClockStyle {
         ClockStyle(skin: skin, neon: neon, customHex: customHex)
-    }
-
-    /// The style as it looks at a given instant, with the pulse applied.
-    public func style(at date: Date) -> ClockStyle {
-        var style = self.style
-        if neon && pulse {
-            style.glowScale = ClockStyle.pulseScale(at: date)
-        }
-        return style
     }
 }
 

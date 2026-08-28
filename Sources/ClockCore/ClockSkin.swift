@@ -37,7 +37,13 @@ public enum ClockSkin: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    public static let defaultCustomHex = "FF7A18"
+    /// Cyan, not the amber it used to be: the presets already cover warm red
+    /// and the orange read as a muddy near-red beside them.
+    public static let defaultCustomHex = "00E5FF"
+
+    /// The old default. Anything still carrying it was never actually chosen,
+    /// so it is migrated forward once on load rather than left behind.
+    public static let legacyCustomHex = "FF7A18"
 
     /// Presets only, for the swatch row. `.custom` is offered separately.
     public static var presets: [ClockSkin] { allCases.filter { $0 != .custom } }

@@ -35,11 +35,6 @@ public struct ClockReading: Equatable, Sendable {
         }
         return ClockReading(hour: rawHour, minute: minute, blankLeadingZero: false)
     }
-
-    /// One blink per second: lit for the first half of every second.
-    public static func colonLit(at date: Date) -> Bool {
-        Int((date.timeIntervalSince1970 * 2).rounded(.down)) % 2 == 0
-    }
 }
 
 /// Shared helper that turns a frame into face metrics.
@@ -94,14 +89,14 @@ public struct ClockGhostShape: Shape {
     }
 }
 
-/// Only the segments that are on for the current reading.
+/// Only the segments that are on for the current reading. The colon is always
+/// one of them: a widget is redrawn once a minute at most, so a blinking colon
+/// would be a coin toss rather than a blink.
 public struct ClockLitShape: Shape {
     public var reading: ClockReading
-    public var colonLit: Bool
 
-    public init(reading: ClockReading, colonLit: Bool) {
+    public init(reading: ClockReading) {
         self.reading = reading
-        self.colonLit = colonLit
     }
 
     public func path(in rect: CGRect) -> Path {
@@ -116,10 +111,8 @@ public struct ClockLitShape: Shape {
                                 offsetBy: offset)
             }
         }
-        if colonLit {
-            for dot in metrics.colonDotRects() {
-                path.addColonDot(dot)
-            }
+        for dot in metrics.colonDotRects() {
+            path.addColonDot(dot)
         }
         return path
     }

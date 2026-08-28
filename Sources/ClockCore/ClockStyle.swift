@@ -12,30 +12,15 @@ public struct ClockStyle: Equatable, Sendable {
     /// Brightness of a segment that is off, relative to one that is on.
     /// Five per cent: there if you look, never loud enough to read as lit.
     public var dimOpacity: Double
-    /// Multiplies the neon glow. 1 is the resting strength; the pulse rides
-    /// between `ClockStyle.pulseFloor` and `ClockStyle.pulseCeiling`.
-    public var glowScale: Double
 
     public init(skin: ClockSkin,
                 neon: Bool,
                 customHex: String = ClockSkin.defaultCustomHex,
-                dimOpacity: Double = 0.05,
-                glowScale: Double = 1) {
+                dimOpacity: Double = 0.05) {
         self.skin = skin
         self.customHex = customHex
         self.neon = neon
         self.dimOpacity = dimOpacity
-        self.glowScale = glowScale
-    }
-
-    public static let pulseFloor: Double = 0.55
-    public static let pulseCeiling: Double = 1.45
-
-    /// One pulse per second, smooth, peaking on the whole second.
-    public static func pulseScale(at date: Date) -> Double {
-        let phase = date.timeIntervalSince1970.truncatingRemainder(dividingBy: 1)
-        let wave = (cos(phase * 2 * .pi) + 1) / 2
-        return pulseFloor + (pulseCeiling - pulseFloor) * wave
     }
 
     /// `.neon { color: #f7fff9 }` is the CSS core, but on a seven-segment glyph
@@ -88,16 +73,11 @@ public struct ClockStyle: Equatable, Sendable {
         (0.070, 0.16)
     ]
 
-    public func glowRadii(digitHeight: CGFloat) -> [CGFloat] {
-        ClockStyle.glowLayers.map { $0.scale * digitHeight * glowScale }
-    }
-
     /// The face background. Same near-black as imperator-retropong.
     public static let faceBackground = Color(.sRGB, red: 0.04, green: 0.04, blue: 0.04, opacity: 1)
 
-    /// macOS widget chrome, so the desktop clock reads as a widget and not as a
-    /// stray window: continuous rounded corners, a hairline edge and a soft
-    /// drop shadow.
+    /// macOS widget chrome, for the review renders: continuous rounded corners,
+    /// a hairline edge and a soft drop shadow.
     public static let containerCornerRadius: CGFloat = 24
     public static let containerBorder = Color.white.opacity(0.14)
     public static let containerFill = Color(.sRGB, red: 0.06, green: 0.06, blue: 0.065, opacity: 0.94)
@@ -126,12 +106,10 @@ public struct WidgetContainer<Content: View>: View {
 /// through at `style.dimOpacity`.
 public struct ClockFaceView: View {
     public var reading: ClockReading
-    public var colonLit: Bool
     public var style: ClockStyle
 
-    public init(reading: ClockReading, colonLit: Bool, style: ClockStyle) {
+    public init(reading: ClockReading, style: ClockStyle) {
         self.reading = reading
-        self.colonLit = colonLit
         self.style = style
     }
 
@@ -149,18 +127,17 @@ public struct ClockFaceView: View {
 
     @ViewBuilder
     private func litLayer(digitHeight: CGFloat) -> some View {
-        let shape = ClockLitShape(reading: reading, colonLit: colonLit).fill(style.litColor)
+        let shape = ClockLitShape(reading: reading).fill(style.litColor)
         if style.neon {
             let layers = ClockStyle.glowLayers
             let glow = style.flatLitColor
-            let scale = style.glowScale
             shape
-                .shadow(color: glow.opacity(min(1, layers[0].opacity * scale)),
-                        radius: layers[0].scale * digitHeight * scale)
-                .shadow(color: glow.opacity(min(1, layers[1].opacity * scale)),
-                        radius: layers[1].scale * digitHeight * scale)
-                .shadow(color: glow.opacity(min(1, layers[2].opacity * scale)),
-                        radius: layers[2].scale * digitHeight * scale)
+                .shadow(color: glow.opacity(layers[0].opacity),
+                        radius: layers[0].scale * digitHeight)
+                .shadow(color: glow.opacity(layers[1].opacity),
+                        radius: layers[1].scale * digitHeight)
+                .shadow(color: glow.opacity(layers[2].opacity),
+                        radius: layers[2].scale * digitHeight)
         } else {
             shape
         }
@@ -170,20 +147,18 @@ public struct ClockFaceView: View {
 /// Face plus its own background, for the widget body and the desktop window.
 public struct ClockPanelView: View {
     public var reading: ClockReading
-    public var colonLit: Bool
     public var style: ClockStyle
     public var padding: CGFloat
 
-    public init(reading: ClockReading, colonLit: Bool, style: ClockStyle, padding: CGFloat = 0.10) {
+    public init(reading: ClockReading, style: ClockStyle, padding: CGFloat = 0.10) {
         self.reading = reading
-        self.colonLit = colonLit
         self.style = style
         self.padding = padding
     }
 
     public var body: some View {
         GeometryReader { geo in
-            ClockFaceView(reading: reading, colonLit: colonLit, style: style)
+            ClockFaceView(reading: reading, style: style)
                 .padding(.horizontal, geo.size.width * padding)
                 .padding(.vertical, geo.size.height * padding)
         }

@@ -1,30 +1,22 @@
-# ImperatorClock
+# Imperator WidgetClock
 
 A seven-segment retro clock for macOS: a desktop widget, plus a menu bar app
-whose optional desktop clock blinks the colon once a second.
+that holds its settings.
 
-Unlit strokes stay visible at 10 %, the way the bars of a real LCD clock never
+Unlit strokes stay visible at 5 %, the way the bars of a real LCD clock never
 go fully dark. Five preset colours shared with the rest of the Imperator apps,
 a free colour picker, a neon glow ported from the `.neon` rule in
-imperator-deals, and a pulse that swells the glow once a second.
+imperator-deals.
 
 The digits stand upright. Most LED clock faces lean; this one does not.
 
-## Two surfaces, one face
-
-| | Widget | Desktop clock |
-|---|---|---|
-| Where | Desktop widget gallery, medium size | Floating window at desktop-icon level |
-| Blinking colon | No | Yes, once per second |
-| Pulsing glow | No | Yes, once per second |
-| Every display | Per widget, placed by hand | One window per screen |
-| Updates | Once a minute | Twice a second |
-| Settings | From the menu bar app | From the menu bar app |
+## Why the colon does not blink
 
 A WidgetKit widget is a still frame that the system renders in advance and swaps
 on a schedule, and its reload budget is measured in dozens of refreshes a day.
-One blink a second needs 86 400. So the widget shows a steady colon and the
-desktop clock does the blinking.
+One blink a second needs 86 400. Half-second timeline entries were tried and
+measured: ten window captures 0.22 s apart were byte-identical, because macOS
+collapses anything finer than a minute. So the colon stays lit.
 
 ## Install
 
@@ -32,14 +24,13 @@ desktop clock does the blinking.
 make install
 ```
 
-Builds release into `build/ImperatorClock.app`, codesigns the widget extension
+Builds release into `build/Imperator WidgetClock.app`, codesigns the widget extension
 and the app, installs to `/Applications`, and launches. Then add the widget:
-right-click the desktop, choose Edit Widgets, and search for ImperatorClock.
+right-click the desktop, choose Edit Widgets, and search for Imperator WidgetClock.
 
-The gallery carries one card per colour, so the widget's colour is picked when
-it is placed. Glow, pulse, hour format and the custom hex live in the menu bar
-popover and apply to both surfaces; changing them asks WidgetKit for a fresh
-timeline, so the widget catches up immediately.
+The gallery carries one card. Colour, glow and hour format all live in
+the menu bar popover and apply to both surfaces; changing one asks WidgetKit for
+a fresh timeline, so the widget catches up immediately.
 
 macOS renders desktop widgets in greyscale unless System Settings, Desktop &
 Dock, Widgets, Widget style is set to Full colour. A widget cannot override
@@ -59,10 +50,8 @@ regenerates `Resources/AppIcon.icns` from the clock renderer itself, and
 
 ## Settings and where they live
 
-The widget's colour is chosen by choosing which card you drag out of the
-gallery: there is one per colour. Everything else, glow, pulse, hour format and
-the custom colour's hex, goes to a JSON file inside the widget extension's own
-sandbox container:
+Colour, glow, hour format and the custom colour's hex go to a JSON file
+inside the widget extension's own sandbox container:
 
 ```
 ~/Library/Containers/com.goranimperator.ImperatorClock.ClockWidget/Data/Library/Application Support/ImperatorClock/settings.json
@@ -74,8 +63,7 @@ not work here: `containermanagerd` refuses a group whose identifier is not
 prefixed with the signing team ID, and a self-signed build has no team. Worse,
 the refusal is fatal, so the widget died at sandbox init and rendered nothing.
 
-The desktop window's own settings — size, dark plate, locked position — stay in
-the app's normal defaults, since the widget has no use for them.
+That file is the whole of the app's state.
 
 ## Release
 
@@ -101,7 +89,7 @@ Not notarized, so Gatekeeper blocks the first launch of a downloaded build:
 right-click the app and choose Open, or
 
 ```bash
-xattr -dr com.apple.quarantine "/Applications/ImperatorClock.app"
+xattr -dr com.apple.quarantine "/Applications/Imperator WidgetClock.app"
 ```
 
 ## Licence

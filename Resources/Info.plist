@@ -15,7 +15,7 @@
 	<key>DTSDKName</key>
 	<string>macosx26.5</string>
 	<key>CFBundleDisplayName</key>
-	<string>ImperatorClock</string>
+	<string>Imperator WidgetClock</string>
 	<key>CFBundleExecutable</key>
 	<string>ImperatorClock</string>
 	<key>CFBundleIconFile</key>
@@ -23,7 +23,7 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.goranimperator.ImperatorClock</string>
 	<key>CFBundleName</key>
-	<string>ImperatorClock</string>
+	<string>Imperator WidgetClock</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

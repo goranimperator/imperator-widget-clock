@@ -2,15 +2,17 @@ import ClockCore
 import SwiftUI
 import WidgetKit
 
-/// One widget per colour.
+/// One widget, one card in the gallery.
 ///
-/// The obvious design is a single widget with a `WidgetConfigurationIntent`, so
-/// the colour is picked in the widget's own Edit sheet. That sheet is built from
-/// App Intents metadata, which Xcode generates with appintentsmetadataprocessor;
-/// hand-written metadata is indexed by `linkd` and does put `Edit "..."` in the
-/// widget's context menu, but the sheet still renders without controls. Until
-/// that is solved the gallery carries one card per colour instead, which needs
-/// no metadata and no settings app: the colour is chosen by choosing the card.
+/// Colour, glow and hour format are settings, and settings live in the menu bar
+/// app. Two earlier shapes were tried and dropped. A `WidgetConfigurationIntent`
+/// would put the colour in the widget's own Edit sheet, but that sheet is built
+/// from App Intents metadata that only Xcode's appintentsmetadataprocessor can
+/// generate; hand-written metadata got as far as an Edit item in the context
+/// menu and a sheet with no controls in it. Publishing one `StaticConfiguration`
+/// per colour worked, but it filled the gallery with six near-identical cards
+/// for a choice the app already owns. So: a single card that reads the shared
+/// file, and nothing to configure on the widget itself.
 struct ClockEntry: TimelineEntry {
     let date: Date
     let preferences: ClockPreferences
@@ -19,8 +21,6 @@ struct ClockEntry: TimelineEntry {
 }
 
 struct ClockProvider: TimelineProvider {
-    let skin: ClockSkin
-
     /// One entry per minute. Sub-minute entries were measured on macOS 26: ten
     /// window captures 0.22 s apart were byte-identical, so WidgetKit collapses
     /// anything finer and a half-second timeline only burns reload budget. The
@@ -28,12 +28,8 @@ struct ClockProvider: TimelineProvider {
     private static let step: TimeInterval = 60
     private static let entryCount = 90
 
-    /// Colour comes from the widget's own kind. Everything else is shared, so a
-    /// custom hex or a changed hour format still reaches every card.
     private func preferences() -> ClockPreferences {
-        var preferences = SharedStore.load()
-        preferences.skin = skin
-        return preferences
+        SharedStore.load()
     }
 
     func placeholder(in context: Context) -> ClockEntry {
@@ -46,7 +42,7 @@ struct ClockProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ClockEntry>) -> Void) {
         let preferences = preferences()
-        SharedStore.writeHeartbeat(preferences, family: skin.rawValue)
+        SharedStore.writeHeartbeat(preferences, family: preferences.skin.rawValue)
 
         let calendar = Calendar.current
         let now = Date()
@@ -68,7 +64,6 @@ struct ClockWidgetView: View {
     var body: some View {
         ClockPanelView(
             reading: ClockReading.reading(for: entry.date, format: entry.preferences.hourFormat),
-            colonLit: true,
             style: entry.style,
             padding: 0.06
         )
@@ -78,42 +73,24 @@ struct ClockWidgetView: View {
     }
 }
 
-/// A gallery card for one colour. `kind` must stay stable: it is how WidgetKit
-/// identifies a placed widget, so renaming one drops it off the desktop.
-struct ColourClockWidget: Widget {
-    /// Defaulted so the struct still has the `init()` that `Widget` requires.
-    var skin: ClockSkin = .purple
-
-    var kind: String { "ImperatorClock.\(skin.rawValue)" }
+/// `kind` is how WidgetKit identifies a placed widget, so renaming it empties
+/// the slot on the desktop and the widget has to be placed again.
+struct ClockWidget: Widget {
+    let kind = "ImperatorClock"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: ClockProvider(skin: skin)) { entry in
+        StaticConfiguration(kind: kind, provider: ClockProvider()) { entry in
             ClockWidgetView(entry: entry)
         }
-        .configurationDisplayName(displayName)
-        .description(summary)
+        .configurationDisplayName("Imperator WidgetClock")
+        .description("Seven-segment retro clock. Colour, glow and hour format are set in the Imperator WidgetClock menu bar app.")
         .supportedFamilies([.systemMedium])
-    }
-
-    private var displayName: String {
-        skin == .custom ? "Clock, custom colour" : "Clock, \(skin.displayName)"
-    }
-
-    private var summary: String {
-        skin == .custom
-            ? "Seven-segment retro clock in a colour of your own, picked in the ImperatorClock app."
-            : "Seven-segment retro clock in \(skin.displayName)."
     }
 }
 
 @main
 struct ClockWidgetBundle: WidgetBundle {
     var body: some Widget {
-        ColourClockWidget(skin: .purple)
-        ColourClockWidget(skin: .red)
-        ColourClockWidget(skin: .green)
-        ColourClockWidget(skin: .blue)
-        ColourClockWidget(skin: .white)
-        ColourClockWidget(skin: .custom)
+        ClockWidget()
     }
 }

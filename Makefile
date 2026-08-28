@@ -1,10 +1,10 @@
-APP_NAME    = ImperatorClock
+APP_NAME    = Imperator WidgetClock
 BINARY_NAME = ImperatorClock
 WIDGET_NAME = ClockWidget
 BUNDLE      = build/$(APP_NAME).app
 APPEX       = $(BUNDLE)/Contents/PlugIns/$(WIDGET_NAME).appex
 DIST        = dist
-ZIP         = $(DIST)/ImperatorClock-$(VERSION).zip
+ZIP         = $(DIST)/ImperatorWidgetClock-$(VERSION).zip
 BUILD_NUMBER = $(shell git rev-list --count HEAD 2>/dev/null || echo 1)
 # Monotonic per-build stamp, so every install looks like a new version to WidgetKit.
 # Seconds since a fixed recent epoch: monotonic, and short enough to stay a
@@ -64,14 +64,12 @@ preview:
 icon:
 	./scripts/make-icon.sh
 
-# Every runnable gate in GATES.md, in order. G8 is a visual review and G9 needs
-# the widget to be placed on the desktop first.
+# Every runnable gate in GATES.md, in order. G8 is a visual review.
 gates: build
 	@swift build -c release 2>&1 | grep -c "error:" | grep -qx 0 && echo G1_BUILD_OK
 	@node scripts/check-config.mjs
 	@node scripts/check-upright.mjs
 	@./.build/release/ClockPreview --verify
-	@./.build/release/ClockPreview --verify-blink
 	@codesign --verify --deep --strict "$(BUNDLE)" \
 		&& codesign --verify --strict "$(APPEX)" && echo G5_SIGN_OK
 	@pluginkit -mAv -p com.apple.widgetkit-extension 2>/dev/null \
@@ -80,7 +78,6 @@ gates: build
 	@"/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" --group-check \
 		| tail -1 || echo "G2B SKIPPED -- run make install first"
 	@node scripts/check-widget-live.mjs
-	@node scripts/check-desktop-blink.mjs | tail -1
 
 clean:
 	rm -rf build dist
