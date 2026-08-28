@@ -4,16 +4,6 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleSupportedPlatforms</key>
-	<array>
-		<string>MacOSX</string>
-	</array>
-	<key>DTPlatformName</key>
-	<string>macosx</string>
-	<key>DTSDKName</key>
-	<string>macosx26.5</string>
 	<key>CFBundleDisplayName</key>
 	<string>Imperator WidgetClock</string>
 	<key>CFBundleExecutable</key>
@@ -22,14 +12,24 @@
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.goranimperator.ImperatorClock</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>Imperator WidgetClock</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0.0</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>MacOSX</string>
+	</array>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>14</string>
+	<key>DTPlatformName</key>
+	<string>macosx</string>
+	<key>DTSDKName</key>
+	<string>macosx26.5</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>NSHighResolutionCapable</key>
