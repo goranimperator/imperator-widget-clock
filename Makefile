@@ -70,6 +70,7 @@ gates: build
 	@node scripts/check-config.mjs
 	@node scripts/check-upright.mjs
 	@./.build/release/ClockPreview --verify
+	@./.build/release/ClockPreview --verify-gaps | tail -1
 	@codesign --verify --deep --strict "$(BUNDLE)" \
 		&& codesign --verify --strict "$(APPEX)" && echo G5_SIGN_OK
 	@pluginkit -mAv -p com.apple.widgetkit-extension 2>/dev/null \

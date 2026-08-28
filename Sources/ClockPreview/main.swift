@@ -223,6 +223,112 @@ func commandVerifyDim() throws {
 }
 
 @MainActor
+func commandVerifyGaps() throws {
+    // Every junction on the face is two 45-degree ends facing each other across
+    // a channel. They must all be the same width: a wider channel around the
+    // middle bar than at the corners is what makes a seven-segment digit look
+    // like it was assembled out of two halves.
+    // Rendered at four times the review size: the channel is a couple of
+    // hundredths of a digit width, and at review size a pixel of antialiasing
+    // is a fifth of the measurement.
+    let probeSize = CGSize(width: faceSize.width * 4, height: faceSize.height * 4)
+    let image = try render(
+        FaceOnly(reading: ClockReading(digits: [8, 8, 8, 8]),
+                 style: ClockStyle(skin: .white, neon: false)),
+        size: probeSize
+    )
+    let map = try bitmap(from: image)
+    let unit = min(CGFloat(map.width) / ClockLayout.faceWidth,
+                   CGFloat(map.height) / ClockLayout.faceHeight)
+    let originX = (CGFloat(map.width) - ClockLayout.faceWidth * unit) / 2
+    let originY = (CGFloat(map.height) - ClockLayout.faceHeight * unit) / 2
+
+    /// The channel is the narrowest crossing between two segment ends, and the
+    /// probe sits in the middle of it, so the width is twice the distance from
+    /// the probe to the nearest lit pixel. Measuring it that way needs no
+    /// direction, which is the part that is easy to get wrong per corner.
+    func channelWidth(at point: CGPoint) -> Double {
+        // Half brightness, so a partly covered edge pixel counts as the edge
+        // rather than as open channel.
+        let threshold = 128.0
+        let limit = Double(unit) * 0.4
+        var radius = 0.5
+        while radius < limit {
+            var angle = 0.0
+            while angle < 2 * Double.pi {
+                let x = Double(point.x) + cos(angle) * radius
+                let y = Double(point.y) + sin(angle) * radius
+                if x >= 0, y >= 0, Int(x) < map.width, Int(y) < map.height,
+                   map.luminance(x: Int(x.rounded()), y: Int(y.rounded())) > threshold {
+                    return radius * 2
+                }
+                angle += 0.02
+            }
+            radius += 0.25
+        }
+        return limit * 2
+    }
+
+    // The probes are derived from the outlines themselves rather than from the
+    // numbers that produced them, so moving a segment end moves the probe with
+    // it and the gate measures the channel that is really there.
+    func tip(_ segment: SegmentMask, _ extreme: (CGPoint, CGPoint) -> Bool) -> CGPoint {
+        let points = SegmentGeometry.outline(segment, unit: unit)
+        var best = points[0]
+        for point in points.dropFirst() where extreme(point, best) { best = point }
+        return best
+    }
+    let leftmost: (CGPoint, CGPoint) -> Bool = { $0.x < $1.x }
+    let rightmost: (CGPoint, CGPoint) -> Bool = { $0.x > $1.x }
+    let topmost: (CGPoint, CGPoint) -> Bool = { $0.y < $1.y }
+    let bottommost: (CGPoint, CGPoint) -> Bool = { $0.y > $1.y }
+
+    let junctions: [(name: String, first: CGPoint, second: CGPoint)] = [
+        ("corner a/f", tip(.a, leftmost), tip(.f, topmost)),
+        ("corner a/b", tip(.a, rightmost), tip(.b, topmost)),
+        ("corner d/e", tip(.d, leftmost), tip(.e, bottommost)),
+        ("corner d/c", tip(.d, rightmost), tip(.c, bottommost)),
+        ("middle f/g", tip(.f, bottommost), tip(.g, leftmost)),
+        ("middle g/b", tip(.b, bottommost), tip(.g, rightmost)),
+        ("middle e/g", tip(.e, topmost), tip(.g, leftmost)),
+        ("middle g/c", tip(.c, topmost), tip(.g, rightmost))
+    ]
+    let probes = junctions.map { junction in
+        (name: junction.name,
+         point: CGPoint(x: (junction.first.x + junction.second.x) / 2,
+                        y: (junction.first.y + junction.second.y) / 2))
+    }
+
+    var widths: [(String, Double)] = []
+    for probe in probes {
+        let point = CGPoint(x: originX + probe.point.x, y: originY + probe.point.y)
+        let width = channelWidth(at: point)
+        widths.append((probe.name, width))
+    }
+
+    let measured = widths.map(\.1)
+    let smallest = measured.min() ?? 0
+    let largest = measured.max() ?? 0
+    print("channels " + widths.map { String(format: "%@=%.2f", $0.0, $0.1) }.joined(separator: " "))
+    print(String(format: "min=%.2f max=%.2f spread=%.2f px", smallest, largest, largest - smallest))
+
+    let mean = measured.reduce(0, +) / Double(measured.count)
+    let spread = (largest - smallest) / mean
+    print(String(format: "mean=%.2f spread=%.1f%%", mean, spread * 100))
+
+    guard smallest > 1 else {
+        throw RenderError.failed("a junction has no channel at all; two segments are touching")
+    }
+    // A tenth of the channel is rasterisation. The fault this gate exists for
+    // was a middle channel three times the width of a corner one.
+    guard spread <= 0.12 else {
+        throw RenderError.failed(String(format: "channels differ by %.1f%% of their mean, wanted 12%% or less",
+                                        spread * 100))
+    }
+    print("G10_GAPS_OK")
+}
+
+@MainActor
 func commandIcon(to url: URL) throws {
     let image = try render(IconArt(), size: CGSize(width: 1024, height: 1024))
     try writePNG(image, to: url)
@@ -238,6 +344,8 @@ struct ClockPreviewTool {
                 switch arguments.first {
                 case "--verify":
                     try commandVerifyDim()
+                case "--verify-gaps":
+                    try commandVerifyGaps()
                 case "--icon":
                     let path = arguments.count > 1 ? arguments[1] : "Resources/AppIcon.png"
                     try commandIcon(to: URL(fileURLWithPath: path))
@@ -247,7 +355,7 @@ struct ClockPreviewTool {
                     print("PREVIEW_OK \(count) -> \(path)")
                 default:
                     FileHandle.standardError.write(
-                        "usage: ClockPreview [--render <dir>|--verify|--icon <path>]\n"
+                        "usage: ClockPreview [--render <dir>|--verify|--verify-gaps|--icon <path>]\n"
                             .data(using: .utf8)!
                     )
                     exit(2)

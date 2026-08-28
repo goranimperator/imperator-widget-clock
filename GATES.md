@@ -41,6 +41,20 @@ Run every runnable gate with `make gates`.
       EXPECT: G3_DIM_OK
       EVIDENCE: `lit=255.0 unlit=25.0 ratio=0.0980`
 
+## G10 Every junction has the same channel
+- [x] The gap where two segments meet is the same width at all eight junctions
+      of a digit, corners and the middle bar alike.
+      CHECK: ./.build/release/ClockPreview --verify-gaps
+      EXPECT: G10_GAPS_OK
+      EVIDENCE: `min=20.00 max=21.00 mean=20.56 spread=4.9%` on an "8" rendered
+      at four times review size. The probes are the midpoints between the two
+      facing tips, read back out of the outlines themselves, and the width is
+      twice the distance from a probe to the nearest lit pixel. Positive
+      control: with the vertical segments inset by `thickness / 2 + miter` from
+      the middle instead of by `miter`, which is how the face shipped, the four
+      middle junctions measure `64.00 65.00 66.50 68.00` against `20.00` to
+      `21.00` at the corners, and the gate fails at `spread 111.0%`.
+
 ## G4 Digits are upright, not italic
 - [x] No shear, skew, oblique or rotation reaches the glyph geometry.
       CHECK: node scripts/check-upright.mjs

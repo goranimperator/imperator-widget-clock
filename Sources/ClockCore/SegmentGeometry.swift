@@ -60,7 +60,11 @@ public enum ClockLayout {
     /// rather than the hairline segments of the macOS screen saver.
     public static let thickness: CGFloat = 0.22
 
-    /// Diagonal breathing room where two segments meet at a corner.
+    /// Breathing room between two segments that meet. One value for every
+    /// junction, so the channel at a corner and the channel around the middle
+    /// bar come out the same width: each segment's end stops `miter` short of
+    /// its neighbour's centre line, which puts the two facing 45-degree edges
+    /// `miter * sqrt(2)` apart wherever they meet.
     public static let miter: CGFloat = 0.028
 
     /// How far the 45-degree cut at a segment's end travels inwards, as a
@@ -149,6 +153,10 @@ public enum SegmentGeometry {
         let t = ClockLayout.thickness * unit
         let m = ClockLayout.miter * unit
         let half = t / 2
+        // A bar's end stops `m` short of the centre line of the bar it meets.
+        // The horizontals meet the verticals, whose centre lines are `half` in
+        // from each side; the verticals meet a horizontal centred on `half`,
+        // `h / 2` or `h - half`.
         let inset = half + m
 
         switch segment {
@@ -159,13 +167,13 @@ public enum SegmentGeometry {
         case .d:
             return horizontal(centerY: h - half, from: inset, to: w - inset, thickness: t)
         case .f:
-            return vertical(centerX: half, from: inset, to: h / 2 - inset, thickness: t)
+            return vertical(centerX: half, from: inset, to: h / 2 - m, thickness: t)
         case .b:
-            return vertical(centerX: w - half, from: inset, to: h / 2 - inset, thickness: t)
+            return vertical(centerX: w - half, from: inset, to: h / 2 - m, thickness: t)
         case .e:
-            return vertical(centerX: half, from: h / 2 + inset, to: h - inset, thickness: t)
+            return vertical(centerX: half, from: h / 2 + m, to: h - inset, thickness: t)
         case .c:
-            return vertical(centerX: w - half, from: h / 2 + inset, to: h - inset, thickness: t)
+            return vertical(centerX: w - half, from: h / 2 + m, to: h - inset, thickness: t)
         default:
             return []
         }
