@@ -9,7 +9,7 @@ public struct ClockPreferences: Codable, Equatable, Sendable {
     public var neon: Bool
     public var hourFormat: ClockHourFormat
 
-    public init(skin: ClockSkin = .purple,
+    public init(skin: ClockSkin = .white,
                 customHex: String = ClockSkin.defaultCustomHex,
                 neon: Bool = false,
                 hourFormat: ClockHourFormat = .system) {
@@ -26,7 +26,7 @@ public struct ClockPreferences: Codable, Equatable, Sendable {
     /// each read is wrapped.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        skin = (try? container.decodeIfPresent(ClockSkin.self, forKey: .skin)) as? ClockSkin ?? .purple
+        skin = (try? container.decodeIfPresent(ClockSkin.self, forKey: .skin)) as? ClockSkin ?? .white
         let storedHex = (try? container.decodeIfPresent(String.self, forKey: .customHex))
             as? String ?? ClockSkin.defaultCustomHex
         customHex = storedHex.caseInsensitiveCompare(ClockSkin.legacyCustomHex) == .orderedSame
