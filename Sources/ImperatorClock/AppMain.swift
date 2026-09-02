@@ -1,7 +1,12 @@
 import AppKit
 
-// Menu bar only: no Dock icon, no main window. LSUIElement in Info.plist keeps
-// it out of the Dock; .accessory keeps it out of the app switcher.
+// Menu bar only: no Dock icon, no main window. LSUIElement in Info.plist is what
+// actually keeps the tile out of the Dock: it has to be set before the process
+// launches, because LaunchServices decides on the tile at launch and a policy
+// change from main() arrives too late to take it back. Shipping without the key
+// left the app reporting `ApplicationType="Foreground"` to `lsappinfo` and a
+// Dock tile with a running dot under it. The call below is still needed for the
+// app switcher, and it is what makes the popover behave as an accessory window.
 @main
 @MainActor
 struct ImperatorClockApp {

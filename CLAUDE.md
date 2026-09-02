@@ -103,10 +103,11 @@ built and then removed on request: the clock is a widget and nothing else.
 Do not reintroduce either as a setting. Gate G2 fails on the words `pulse` and
 `colonLit` in `ClockStyle`, `SharedStore` and `SettingsView` for that reason.
 
-## Two traps that cost a whole afternoon
+## Three traps that each looked like a different bug
 
-Both made the widget register with `pluginkit` and then render nothing, which
-looks identical to a widget that was never installed.
+The first two made the widget register with `pluginkit` and then render
+nothing, which looks identical to a widget that was never installed. The third
+put a Dock tile on a menu bar app.
 
 1. **The entry point.** Every shipping macOS widget binary references
    `_NSExtensionMain`; a SwiftPM executable does not, so WidgetKit's `@main`
@@ -119,6 +120,20 @@ looks identical to a widget that was never installed.
    identifier lacks the signing team ID prefix, and the rejection kills the
    extension at sandbox init: `exited due to exit(0), ran for 44ms`. The
    settings file lives in the extension's own container instead.
+3. **`LSUIElement`.** It is the only thing that keeps the Dock tile away.
+   `setActivationPolicy(.accessory)` was in `main()` from the first commit and
+   1.0.0 still shipped a Dock icon: LaunchServices decides on the tile before
+   the process runs, so a policy change from `main()` arrives too late to take
+   it back. Both are needed. The key hides the tile, the call keeps the app out
+   of the switcher and makes the popover behave as an accessory window. Ask
+   LaunchServices rather than reading the plist, since the plist was right in
+   the docs and missing in the file for the whole 1.0.0 cycle:
+
+   ```bash
+   lsappinfo info -only ApplicationType "$(lsappinfo find LSDisplayName='Imperator WidgetClock' | head -1)"
+   ```
+
+   `UIElement` is right. `Foreground` means the tile is back.
 
 When the widget looks dead, read the real logs. `log` is a zsh builtin that
 shadows the tool, so always call `/usr/bin/log`:

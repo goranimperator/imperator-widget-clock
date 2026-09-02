@@ -118,6 +118,16 @@ expect(cards === 1, `the widget bundle publishes ${cards} gallery cards, expecte
 expect(!/ColourClockWidget/.test(widget),
   'the per-colour gallery cards are back');
 
+// A menu bar app with a Dock tile is not a menu bar app. The runtime
+// setActivationPolicy(.accessory) call is not enough on its own: LaunchServices
+// creates the tile before main() runs, and the app shipped a Dock icon for that
+// reason until LSUIElement went into the plist.
+const appPlist = read('Resources/Info.plist');
+expect(/<key>LSUIElement<\/key>\s*<true\/>/.test(appPlist),
+  'Resources/Info.plist has no LSUIElement, so the app takes a Dock tile');
+expect(/setActivationPolicy\(\.accessory\)/.test(read('Sources/ImperatorClock/AppMain.swift')),
+  'the app no longer sets .accessory, so it would show in the app switcher');
+
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL ${failure}`);
   process.exit(1);

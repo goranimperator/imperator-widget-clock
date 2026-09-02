@@ -25,6 +25,17 @@ Run every runnable gate with `make gates`.
       a decoy second `StaticConfiguration` and a decoy `Color.accentColor`, and
       failed on it before passing once it was removed.
 
+## G2C The app takes no Dock tile
+- [x] The menu bar app runs as a UIElement, so the Dock shows nothing for it.
+      CHECK: lsappinfo info -only ApplicationType "$(lsappinfo find LSDisplayName='Imperator WidgetClock' | head -1)"
+      EXPECT: "ApplicationType"="UIElement"
+      EVIDENCE: it read `"ApplicationType"="Foreground"` through 1.0.0, and the
+      Dock carried a tile with a running dot. `setActivationPolicy(.accessory)`
+      was already there and did not prevent it: LaunchServices creates the tile
+      before `main()` runs. `LSUIElement` in Info.plist is what fixes it, and
+      G2 now fails if the key goes missing, verified against the plist with the
+      key deleted.
+
 ## G2B The settings file round-trips
 - [x] The installed app writes and reads the file the widget reads.
       CHECK: "/Applications/Imperator WidgetClock.app/Contents/MacOS/ImperatorClock" --group-check
