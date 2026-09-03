@@ -190,8 +190,12 @@ an explicit instruction.
 
 ```bash
 make dist VERSION=x.y.z
-make release VERSION=x.y.z
+make release VERSION=x.y.z NOTES="What this release changes."
 ```
+
+`NOTES` is what the GitHub release page says. Leave it out and it falls back to
+a description of the app, which only reads correctly on a first release. The
+Gatekeeper instructions are appended either way.
 
 `dist` is safe and touches nothing in git or on the remote. `release` bumps both
 `Info.plist` files, commits, tags, pushes and publishes a GitHub release with

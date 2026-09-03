@@ -23,6 +23,22 @@ STAMP = $(shell echo $$(( $$(date +%s) - 1750000000 )))
 # widget disappear from the gallery after an update.
 CODESIGN_IDENTITY ?= Imperator Dev
 
+# What the GitHub release says. The default describes the app, which is right
+# for a first release and wrong for every later one: override it per release so
+# the notes say what changed. The Gatekeeper line is appended either way, since
+# it is true of every build and is the first thing a downloader hits.
+#
+# Both have to stay on one logical line. A literal newline inside a recipe line
+# splits it into two shell commands, and the release then publishes with half
+# its notes and a stray command after it.
+NOTES ?= A seven-segment retro clock as a macOS desktop widget, with a menu bar \
+app that holds its settings. Six colours including one you pick yourself, an \
+optional neon glow, and unlit strokes held at 5 percent so the face reads like \
+a real LCD.
+GATEKEEPER = Signed with a self-signed certificate and not notarized, so \
+Gatekeeper blocks the first launch: right-click the app and choose Open, or run \
+\`xattr -dr com.apple.quarantine \"/Applications/$(APP_NAME).app\"\`.
+
 .PHONY: all build clean run install preview dist release check-version gates
 
 all: build
@@ -124,6 +140,6 @@ release: check-version
 	git push origin v$(VERSION)
 	gh release create v$(VERSION) \
 		--title "$(APP_NAME) $(VERSION)" \
-		--notes "A seven-segment retro clock as a macOS desktop widget, with a menu bar app that holds its settings. Six colours including one you pick yourself, an optional neon glow, and unlit strokes held at 5 percent so the face reads like a real LCD. Signed with a self-signed certificate and not notarized, so Gatekeeper blocks the first launch: right-click the app and choose Open, or run \`xattr -dr com.apple.quarantine \"/Applications/$(APP_NAME).app\"\`." \
+		--notes "$(NOTES) $(GATEKEEPER)" \
 		"$(ZIP)#$(APP_NAME) $(VERSION) (macOS)"
 	@echo "Released v$(VERSION)"
