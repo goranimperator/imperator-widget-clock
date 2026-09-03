@@ -96,9 +96,18 @@ Run every runnable gate with `make gates`.
       reads the settings file. Registration alone proves nothing: the extension
       was registered for hours while exiting after 44 ms.
       CHECK: node scripts/check-widget-live.mjs
-      EXPECT: G6_WIDGET_LIVE_OK
-      EVIDENCE: `heartbeat ... skin=purple neon=true`, and chronod logging
-      `getAllDescriptors result.` rather than `error result`.
+      EXPECT: G6_WIDGET_LIVE_OK, and a `proof:` line naming what was observed
+      EVIDENCE: `proof: the widget read skin=white 2 minutes ago`. Either half
+      is proof on its own: the heartbeat matching the settings the widget was
+      asked to read, or chronod logging `getAllDescriptors result.` rather than
+      `error result`. Both can be missing, because WidgetKit may not have asked
+      in the window, and the check then prints `G6_WIDGET_LIVE SKIPPED` and its
+      reason. It used to print OK after skipping both halves, which is the same
+      mistake as accepting registration as proof of life; that was found during
+      the 1.0.1 audit, when it reported OK on a 68 minute old heartbeat and no
+      chronod entry at all. Verified in both directions: fresh heartbeat gives
+      a proof line, and touching the settings file so the comparison cannot run
+      gives SKIPPED.
 
 ## G8 Visual review against the references
 - [x] MANUAL: rendered faces match the reference image's proportions (1:2.4),

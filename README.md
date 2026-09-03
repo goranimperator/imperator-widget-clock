@@ -106,12 +106,20 @@ targets:
 
 - **`ClockCore`** is the whole face: segment geometry, the lit and unlit paths,
   the colour and glow rules, and the app/widget settings contract.
-- **`ImperatorClock`** is the menu bar app. `LSUIElement`, so no Dock icon and
-  no app switcher entry. A status item and a settings popover, nothing more.
+- **`ImperatorClock`** is the menu bar app. A status item and a settings
+  popover, nothing more. Two separate things keep it off the Dock and out of the
+  app switcher, and it needs both: `LSUIElement` in `Info.plist`, because
+  LaunchServices decides on the Dock tile before the process runs, and
+  `setActivationPolicy(.accessory)` for the switcher and for the popover to
+  behave as an accessory window. The menu bar icon is drawn rather than taken
+  from SF Symbols, and its outline is the gamepad body from imperator-free-games
+  so the two apps are the same size side by side.
 - **`ClockWidget`** is the widget extension. One widget, medium family only, one
   timeline entry per minute, 90 entries per request.
-- **`ClockPreview`** is a headless renderer that produces the review PNGs, the
-  app icon and the pixel measurements behind the gates. It never ships.
+- **`ClockPreview`** is a headless renderer that produces the review PNGs and
+  the pixel measurements behind the gates. It never ships. It does not draw the
+  app icon: that is supplied artwork, and the renderer that used to generate it
+  wrote over the file by default.
 
 ```bash
 make run       # build and launch from build/ without installing
@@ -153,8 +161,9 @@ what it read, and the acceptance check for the shared store reads it.
 ## Gates
 
 `GATES.md` is the acceptance ledger: one observable outcome per gate, each with
-the command that decides it. `make gates` runs every runnable one. Two of them
-need the installed bundle, and one of those also needs the widget to be placed.
+the command that decides it. `make gates` runs every runnable one. Three of them
+need the app installed, and one of those three also needs the widget to be
+placed on the desktop.
 
 Registration is not accepted as proof of life. The extension was registered for
 hours at one point while exiting after 44 ms, so the live check reads the

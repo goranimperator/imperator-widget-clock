@@ -77,9 +77,12 @@ gates: build
 		| grep -qi "ImperatorClock.ClockWidget" && echo G6_WIDGET_REGISTERED \
 		|| echo "G6 SKIPPED -- run make install first"
 	@./.build/release/$(BINARY_NAME) --icon-check | tail -1
+	# Before --group-check, which writes a probe to the settings file: that
+	# moves its mtime, and the live check will not compare a heartbeat older
+	# than the settings it is supposed to have read.
+	@node scripts/check-widget-live.mjs
 	@"/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" --group-check \
 		| tail -1 || echo "G2B SKIPPED -- run make install first"
-	@node scripts/check-widget-live.mjs
 
 clean:
 	rm -rf build dist

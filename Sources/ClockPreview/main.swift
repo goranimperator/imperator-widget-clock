@@ -108,18 +108,6 @@ struct WidgetMock: View {
     }
 }
 
-struct IconArt: View {
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 200, style: .continuous)
-                .fill(ClockStyle.faceBackground)
-            ClockPanelView(reading: ClockReading(digits: [0, 6, 5, 3]),
-                           style: ClockStyle(skin: .purple, neon: true),
-                           padding: 0.13)
-        }
-    }
-}
-
 // MARK: - Face geometry in pixels, for sampling
 
 /// Where a given segment of a given digit lands inside a rendered face image.
@@ -328,13 +316,6 @@ func commandVerifyGaps() throws {
     print("G10_GAPS_OK")
 }
 
-@MainActor
-func commandIcon(to url: URL) throws {
-    let image = try render(IconArt(), size: CGSize(width: 1024, height: 1024))
-    try writePNG(image, to: url)
-    print("ICON_OK \(url.path)")
-}
-
 @main
 struct ClockPreviewTool {
     static func main() async {
@@ -346,16 +327,13 @@ struct ClockPreviewTool {
                     try commandVerifyDim()
                 case "--verify-gaps":
                     try commandVerifyGaps()
-                case "--icon":
-                    let path = arguments.count > 1 ? arguments[1] : "Resources/AppIcon.png"
-                    try commandIcon(to: URL(fileURLWithPath: path))
                 case "--render", nil:
                     let path = arguments.count > 1 ? arguments[1] : "build/preview"
                     let count = try commandRender(into: URL(fileURLWithPath: path))
                     print("PREVIEW_OK \(count) -> \(path)")
                 default:
                     FileHandle.standardError.write(
-                        "usage: ClockPreview [--render <dir>|--verify|--verify-gaps|--icon <path>]\n"
+                        "usage: ClockPreview [--render <dir>|--verify|--verify-gaps]\n"
                             .data(using: .utf8)!
                     )
                     exit(2)

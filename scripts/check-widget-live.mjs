@@ -2,7 +2,12 @@
 //
 // A registered-but-dead extension looks identical from `pluginkit`, so the
 // oracle is the heartbeat the widget writes from getTimeline, plus chronod's
-// own verdict on the descriptor query. Both must be recent.
+// own verdict on the descriptor query.
+//
+// Either one is proof on its own, and both can be unavailable: WidgetKit may
+// simply not have asked recently. When that happens this gate reports SKIPPED
+// rather than OK. It used to print OK after skipping both halves, which is the
+// same mistake as accepting registration as proof of life.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -12,6 +17,8 @@ const store = `${homedir()}/Library/Containers/com.goranimperator.ImperatorClock
 const heartbeat = `${store}/widget-heartbeat.json`;
 const settings = `${store}/settings.json`;
 const failures = [];
+// What was actually observed, as opposed to what merely did not fail.
+const proofs = [];
 
 const registered = execFileSync('pluginkit', ['-mAv', '-p', 'com.apple.widgetkit-extension'], {
   encoding: 'utf8',
@@ -33,6 +40,8 @@ if (!existsSync(heartbeat)) {
     console.log('settings changed after the last timeline; skipping the value comparison');
   } else if (beat.skin !== wanted.skin) {
     failures.push(`widget read skin ${beat.skin}, settings say ${wanted.skin}`);
+  } else {
+    proofs.push(`the widget read skin=${beat.skin} ${ageMinutes.toFixed(0)} minutes ago`);
   }
 }
 
@@ -51,10 +60,19 @@ if (!lastResult) {
   failures.push(`chronod could not read the widget: ${lastResult.trim().slice(-120)}`);
 } else {
   console.log('chronod getAllDescriptors: result');
+  proofs.push('chronod answered the descriptor query');
 }
 
 if (failures.length) {
   for (const f of failures) console.error(`FAIL ${f}`);
   process.exit(1);
 }
+if (proofs.length === 0) {
+  // Nothing failed, but nothing was observed either. Say so instead of
+  // claiming the widget is alive.
+  console.log('G6_WIDGET_LIVE SKIPPED -- no evidence in this window; place the '
+    + 'widget, then run ImperatorClock --widget-status to force a timeline');
+  process.exit(0);
+}
+for (const proof of proofs) console.log(`proof: ${proof}`);
 console.log('G6_WIDGET_LIVE_OK');

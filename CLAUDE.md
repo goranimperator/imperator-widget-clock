@@ -68,8 +68,11 @@ Four targets:
 - **`ClockWidget`**: the WidgetKit extension. One widget, medium family only,
   one timeline entry per minute, 90 entries per request. Everything it draws
   comes from the shared settings file.
-- **`ClockPreview`**: headless renderer. Produces the review PNGs, the app icon,
-  and the pixel measurement behind gate G3. Never shipped.
+- **`ClockPreview`**: headless renderer. Produces the review PNGs and the pixel
+  measurements behind gates G3 and G10. Never shipped. It used to render the app
+  icon too, with `--icon` defaulting to `Resources/AppIcon.png`: `make icon` was
+  removed before 1.0.0 so nothing would overwrite the supplied sigil, but the
+  command itself survived and still would have. Both are gone now.
 
 ### The face
 
