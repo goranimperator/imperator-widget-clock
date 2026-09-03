@@ -201,6 +201,27 @@ glyph turns to mush. The drawn icon is the clock's own face reduced to a
 display outline with a lit colon, which lands on whole pixels at any scale. It
 is a template image, so macOS inverts it for light and dark menu bars.
 
+The outline is not its own shape: it is the gamepad body from
+imperator-free-games, so the two apps sit side by side in the menu bar without
+one looking bigger than the other. That icon is Lucide's `gamepad` at 18pt, a
+24-unit viewBox holding `rect x=2 y=6 width=20 height=12 rx=2` at
+`stroke-width=2`. Everything in `StatusItemIcon` is one of those units scaled
+to `size`, which is why the numbers look arbitrary. The icon shipped at 23 x 16
+until this was matched up, against 18 x 18 everywhere else and in brandbook
+8.1.
+
+The colon has to share the canvas's parity to be both centred and crisp. A 2pt
+dot on a 23pt canvas cannot be, and `.rounded()` resolved the tie by moving it
+half a point right, which is the bug that was visible in the menu bar. Nothing
+in the drawing code enforces the rule now: a guard that grows the dot to fix
+parity overflows the body at odd sizes, so `--icon-check` measures the finished
+pixels instead. It renders the sibling's own SVG and compares, so the two icons
+can only drift apart deliberately.
+
+```bash
+./.build/release/ImperatorClock --icon-check
+```
+
 ## Face proportions are in digit widths, and three of them are derived
 
 Everything in `ClockLayout` is a fraction of one digit's width, so widening a

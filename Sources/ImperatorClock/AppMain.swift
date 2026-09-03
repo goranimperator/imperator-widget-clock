@@ -20,6 +20,9 @@ struct ImperatorClockApp {
         if CommandLine.arguments.contains("--widget-status") {
             exit(WidgetStatus.run())
         }
+        if CommandLine.arguments.contains("--icon-check") {
+            exit(IconCheck.run())
+        }
         let application = NSApplication.shared
         application.delegate = delegate
         application.setActivationPolicy(.accessory)

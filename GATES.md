@@ -46,6 +46,21 @@ Run every runnable gate with `make gates`.
       containers identifiers should be prefixed by requestor's team ID`, and the
       rejection killed the extension at sandbox init.
 
+## G11 The menu bar icon matches its siblings and its colon is centred
+- [x] The drawn icon is the same size, border weight and corner radius as the
+      gamepad icon in imperator-free-games, and the colon sits dead centre
+      inside the outline on whole pixels.
+      CHECK: ./.build/release/ImperatorClock --icon-check
+      EXPECT: G11_ICON_OK
+      EVIDENCE: the check renders imperator-free-games' own gamepad SVG and
+      compares against the live drawing, not against copied numbers. Before:
+      canvas 23 x 16, ink 22.00 x 13.00 pt, corner inset 2.25 pt, colon 0.50 pt
+      right of centre. After: canvas 18 x 18, ink 16.50 x 10.50 pt, corner inset
+      1.50 pt, colon 0.000 pt off in x and y at 1x, 2x and 3x with no part-lit
+      pixels. The games icon measures 18 x 18 and 16.50 x 10.50 with a 1.50 pt
+      inset. Negative controls: a canvas back at 16pt failed on five counts, and
+      a colon nudged 0.5 pt failed on offset and on blur.
+
 ## G3 Unlit segments render at 5 %
 - [x] Measured luminance of an unlit segment is 0.05 of a lit one, +/- 0.015.
       CHECK: ./.build/release/ClockPreview --verify

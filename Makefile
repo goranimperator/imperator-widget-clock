@@ -76,6 +76,7 @@ gates: build
 	@pluginkit -mAv -p com.apple.widgetkit-extension 2>/dev/null \
 		| grep -qi "ImperatorClock.ClockWidget" && echo G6_WIDGET_REGISTERED \
 		|| echo "G6 SKIPPED -- run make install first"
+	@./.build/release/$(BINARY_NAME) --icon-check | tail -1
 	@"/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" --group-check \
 		| tail -1 || echo "G2B SKIPPED -- run make install first"
 	@node scripts/check-widget-live.mjs
