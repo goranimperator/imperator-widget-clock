@@ -8,6 +8,10 @@ import SwiftUI
 /// footer, 340pt wide, forced dark, brand red instead of the system accent.
 struct SettingsView: View {
     @ObservedObject var settings: ClockSettings
+    /// Closes the popover. The About panel is centred on screen while the
+    /// popover hangs off the menu bar, and leaving both up means the user has
+    /// two things to dismiss instead of one.
+    var dismissPopover: () -> Void = {}
 
     static let width: CGFloat = 340
 
@@ -45,9 +49,20 @@ struct SettingsView: View {
     }
 
     private var footer: some View {
-        HStack {
+        HStack(spacing: 12) {
             LaunchAtLoginToggle()
             Spacer()
+            // Brandbook 10.1 puts About next to Quit and names it "About
+            // Imperator WidgetClock". The row already carries the login toggle
+            // inside 340pt, so the full name is the tooltip and the button
+            // reads "About", the way the other popover apps do it.
+            HoverButton {
+                dismissPopover()
+                AboutPanel.show()
+            } label: {
+                Text("About").font(.caption)
+            }
+            .help("About Imperator WidgetClock")
             HoverButton {
                 NSApplication.shared.terminate(nil)
             } label: {

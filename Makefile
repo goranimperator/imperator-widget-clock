@@ -99,6 +99,10 @@ gates: build
 	@node scripts/check-widget-live.mjs
 	@"/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" --group-check \
 		| tail -1 || echo "G2B SKIPPED -- run make install first"
+	# Reads CFBundleShortVersionString and CFBundleVersion, so it needs the
+	# bundle rather than the bare binary in .build.
+	@"/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" --about-check \
+		| tail -1 || echo "G12 SKIPPED -- run make install first"
 
 clean:
 	rm -rf build dist

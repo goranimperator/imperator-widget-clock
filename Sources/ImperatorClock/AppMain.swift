@@ -23,6 +23,24 @@ struct ImperatorClockApp {
         if CommandLine.arguments.contains("--icon-check") {
             exit(IconCheck.run())
         }
+        if CommandLine.arguments.contains("--about-check") {
+            exit(AboutCheck.run())
+        }
+        // An unrecognised flag used to fall straight through to `run()`, which
+        // launched a second copy of the app with a second menu bar icon. A
+        // check that is run against an older installed binary, which is exactly
+        // when a flag is unrecognised, must not do that.
+        if let unknown = CommandLine.arguments.dropFirst().first(where: { $0.hasPrefix("-") }) {
+            FileHandle.standardError.write(
+                "ImperatorClock: unknown option \(unknown)\n"
+                    .data(using: .utf8)!
+            )
+            FileHandle.standardError.write(
+                "usage: ImperatorClock [--group-check|--widget-status|--icon-check|--about-check]\n"
+                    .data(using: .utf8)!
+            )
+            exit(2)
+        }
         let application = NSApplication.shared
         application.delegate = delegate
         application.setActivationPolicy(.accessory)

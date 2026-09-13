@@ -8,3 +8,4 @@ dist/
 .claude/settings.local.json
 .unlazy/
 .unlazy-hook-state.json
+graphify-out/

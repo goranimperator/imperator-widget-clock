@@ -225,6 +225,34 @@ can only drift apart deliberately.
 ./.build/release/ImperatorClock --icon-check
 ```
 
+## The About panel
+
+Brandbook 10, and the numbers there are the spec rather than a suggestion:
+`--about-check` builds the real panel and measures it. The footer button reads
+"About" with the full "About Imperator WidgetClock" as its tooltip, because the
+row already carries the login toggle inside 340pt.
+
+It is a window of its own in an `.accessory` app, so it repeats the two fixes
+`ColorPanelController` already documents. `hidesOnDeactivate` has to be forced
+off, since an NSPanel defaults to hiding when its app deactivates and this app
+deactivates on the first click anywhere else, which is exactly when someone is
+reading an About panel. And `NSApp.activate(ignoringOtherApps:)` has to run
+before the panel is ordered front, or it opens behind whatever the user was in.
+
+One more that is invisible in the source: assigning `contentViewController`
+resizes the window to the hosted view's fitting size, and a SwiftUI view that
+has not laid out yet reports zero, so `setContentSize` has to re-assert the size
+afterwards. Without it the panel opens 0x0 and the `contentRect` passed to the
+initialiser is thrown away.
+
+```bash
+"/Applications/Imperator WidgetClock.app/Contents/MacOS/ImperatorClock" --about-check
+```
+
+An unrecognised option now exits 2 with a usage line instead of falling through
+to `NSApplication.run()`. Running a new check flag against an older installed
+binary used to launch a second copy of the app, with a second menu bar icon.
+
 ## Face proportions are in digit widths, and three of them are derived
 
 Everything in `ClockLayout` is a fraction of one digit's width, so widening a

@@ -118,6 +118,26 @@ expect(cards === 1, `the widget bundle publishes ${cards} gallery cards, expecte
 expect(!/ColourClockWidget/.test(widget),
   'the per-colour gallery cards are back');
 
+// Brandbook 10.1: About sits in the footer next to Quit, and the full name
+// "About Imperator WidgetClock" is the tooltip because the row already carries
+// the login toggle inside 340pt.
+expect(/AboutPanel\.show\(\)/.test(settingsView),
+  'the footer has no About button');
+expect(/\.help\("About Imperator WidgetClock"\)/.test(settingsView),
+  'the About button does not carry the brandbook name as its tooltip');
+expect(/dismissPopover\(\)/.test(settingsView),
+  'opening About leaves the popover up, so there are two things to dismiss');
+
+// The About panel is a window of its own in an .accessory app, the same shape
+// as the colour panel, and it needs the same two fixes or it never shows.
+const aboutPanel = read('Sources/ImperatorClock/AboutPanel.swift');
+expect(/hidesOnDeactivate = false/.test(aboutPanel),
+  'the About panel hides on deactivate, so it vanishes on the first click outside');
+expect(/NSApp\.activate\(ignoringOtherApps: true\)/.test(aboutPanel),
+  'the About panel is never activated, so it opens behind the frontmost app');
+expect(/setContentSize\(/.test(aboutPanel) && /layoutSubtreeIfNeeded\(\)/.test(aboutPanel),
+  'the panel does not lay out and re-assert its size, so it opens 0pt tall');
+
 // A menu bar app with a Dock tile is not a menu bar app. The runtime
 // setActivationPolicy(.accessory) call is not enough on its own: LaunchServices
 // creates the tile before main() runs, and the app shipped a Dock icon for that

@@ -76,10 +76,15 @@ current one. The writes are coalesced: dragging in the colour wheel fires
 continuously, and one reload per tick would spend the daily reload budget in a
 few seconds.
 
+The footer carries the login toggle on the left and About and Quit on the
+right. About opens a small panel with the icon, the version the build actually
+carries, the copyright and a link to goranimperator.com.
+
 The popover follows the
 [Imperator apps brandbook](https://github.com/goranimperator/imperator-apps-brandbook):
 header, divider, content, divider, footer, 340pt wide, forced dark, brand red
-instead of the system accent.
+instead of the system accent. The About panel follows section 10 of the same
+book, and `--about-check` measures it rather than trusting it.
 
 ## Why the colon does not blink
 

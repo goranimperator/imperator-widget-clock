@@ -61,6 +61,39 @@ Run every runnable gate with `make gates`.
       inset. Negative controls: a canvas back at 16pt failed on five counts, and
       a colon nudged 0.5 pt failed on offset and on blur.
 
+## G12 The About panel matches brandbook 10
+- [x] The footer carries About next to Quit, and the panel it opens is the size,
+      shape and content section 10 specifies.
+      CHECK: "/Applications/Imperator WidgetClock.app/Contents/MacOS/ImperatorClock" --about-check
+      EXPECT: G12_ABOUT_OK
+      EVIDENCE: `panel 300x260`, `laid out: 300x247`, `icon 128x128`. The check
+      builds the real NSPanel and reads it rather than re-stating the numbers:
+      300 wide, .titled/.closable/.fullSizeContentView, transparent title bar,
+      hidden title, movable by background, not released when closed, and not
+      hidden on deactivate. It lays the content out and measures what it needs,
+      so the gate proves nothing is clipped instead of trusting the height. The
+      version line is compared against the bundle's own keys, so the panel
+      cannot claim a version the build does not carry.
+
+      Four defects were found this way, none of them visible in a screenshot.
+      Assigning contentViewController resizes the window to the SwiftUI view's
+      fitting size, which is zero before layout, so the panel came up 0x0. The
+      first version of the check compared the panel against its own constant, so
+      a 320pt panel passed; it compares against the literal 300 now and fails on
+      320, verified. `NSApp.applicationIconImage` returns an empty image in an
+      LSUIElement app, and an empty image in SwiftUI takes no space at all
+      rather than drawing a blank, so the panel laid out 146pt tall with no icon
+      and no gap where one belonged; the icon is loaded from the bundle by name
+      now and the gate fails on a zero-sized one. And hidesOnDeactivate defaults
+      to true on an NSPanel, which in an .accessory app means the panel vanishes
+      on the first click outside it; removing that fix fails both this gate and
+      G2.
+
+      One thing the gate does not cover: the panel was photographed showing all
+      four text lines, but a system permission dialog from another app sat over
+      it on both attempts at a clean shot with the icon in place. The icon is
+      measured, not seen.
+
 ## G3 Unlit segments render at 5 %
 - [x] Measured luminance of an unlit segment is 0.05 of a lit one, +/- 0.015.
       CHECK: ./.build/release/ClockPreview --verify

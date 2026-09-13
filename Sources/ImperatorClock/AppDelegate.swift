@@ -48,7 +48,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // while the colour panel is allowed to stay up.
         popover.behavior = .applicationDefined
         popover.animates = true
-        let controller = NSHostingController(rootView: SettingsView(settings: settings))
+        let controller = NSHostingController(
+            rootView: SettingsView(settings: settings) { [weak self] in
+                self?.popover?.performClose(nil)
+            }
+        )
         // The popover is positioned from its contentSize at the moment it is
         // shown. Left to grow afterwards it expands around the anchor instead of
         // hanging below it, and the header ends up above the top of the screen.
