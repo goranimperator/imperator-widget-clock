@@ -57,6 +57,14 @@ expect(/ColorPanelController\.shared\.present/.test(settingsView),
   'the custom swatch does not open the colour picker');
 expect(!/TextField\(/.test(settingsView),
   'the custom colour is typed rather than picked');
+// `Dim widgets on desktop` greyscales the whole widget from outside and tells
+// nothing inside it, so the popover is the only place this can be said. It has
+// to name Classic White too: greyscale maps a colour to its luminance, and a
+// blue face comes back as black rather than as a dimmer blue.
+expect(/Dim widgets on desktop/.test(settingsView),
+  'the popover no longer explains what Dim widgets on desktop does to the colour');
+expect(/Use Classic White while Dim is on\./.test(settingsView),
+  'the popover no longer recommends Classic White while Dim is on');
 const appDelegateSource = read('Sources/ImperatorClock/AppDelegate.swift');
 // Brandbook 7.2: every toggle is a brand-tinted switch, and they all sit on the
 // same two columns, so no toggle may carry an indent of its own.

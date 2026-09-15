@@ -49,7 +49,10 @@ Two things worth knowing on first run:
 
 - macOS renders desktop widgets in greyscale unless System Settings, Desktop &
   Dock, Widgets, Widget style is set to Full colour. The widget cannot override
-  this. `WidgetRenderingMode` is handed to it, not chosen by it.
+  this. `WidgetRenderingMode` is handed to it, not chosen by it. The same
+  setting's `Dim widgets on desktop` greyscales the face as well, and greyscale
+  maps a colour to its luminance, so a saturated pick comes back almost black.
+  Use Classic White while Dim is on.
 - The build is signed with a self-signed certificate and is not notarized, so
   Gatekeeper blocks the first launch of a downloaded copy. Right-click the app
   and choose Open, or run:

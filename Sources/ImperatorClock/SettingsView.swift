@@ -129,9 +129,13 @@ struct SettingsView: View {
                     Text("The swatch with the pen opens the colour wheel. Pick any colour you like.")
                     // Neither the app nor the widget is told when this is on:
                     // a desktop widget always renders in .fullColor and macOS
-                    // composites the dimming over it. So this states it.
-                    Text("With Dim widgets on desktop turned on, macOS draws the widget "
-                         + "in greyscale, so your colour only shows when the desktop is bare.")
+                    // composites the dimming over it. So this states it, and
+                    // names the skin that survives it: greyscale maps a colour
+                    // to its luminance, and blue's is 0.07, so a blue face
+                    // under Dim reads as black.
+                    Text("With Dim widgets on desktop turned on, macOS redraws the widget "
+                         + "in greyscale: a saturated colour comes back almost black. "
+                         + "Use Classic White while Dim is on.")
                 }
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
