@@ -33,8 +33,8 @@ CODESIGN_IDENTITY ?= Imperator Dev
 # its notes and a stray command after it.
 NOTES ?= A seven-segment retro clock as a macOS desktop widget, with a menu bar \
 app that holds its settings. Six colours including one you pick yourself, an \
-optional neon glow, and unlit strokes held at 5 percent so the face reads like \
-a real LCD.
+optional neon glow, and unlit strokes held at 25 percent so the face reads like \
+a real LCD whether or not Dim widgets on desktop is on.
 GATEKEEPER = Signed with a self-signed certificate and not notarized, so \
 Gatekeeper blocks the first launch: right-click the app and choose Open, or run \
 \`xattr -dr com.apple.quarantine \"/Applications/$(APP_NAME).app\"\`.
