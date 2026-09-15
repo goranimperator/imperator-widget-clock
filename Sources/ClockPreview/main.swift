@@ -200,8 +200,15 @@ func commandVerifyDim() throws {
     guard unlit > 2 else {
         throw RenderError.failed("unlit segment measured \(unlit); it must stay visible")
     }
-    guard abs(ratio - 0.05) <= 0.015 else {
-        throw RenderError.failed(String(format: "unlit/lit ratio %.4f is not 0.05 +/- 0.015", ratio))
+    // 0.25, not the 0.05 this shipped with. `Dim widgets on desktop` composites
+    // the widget from outside at about 0.75 and in greyscale, and it does not
+    // do it linearly: a ghost sourced at 0.30 disappeared entirely while 0.37
+    // came back at 0.188 and 0.45 at 0.251. Below roughly 0.30 the compositor
+    // drops the segment, so the face stopped reading as an LCD exactly when the
+    // desktop was covered. 0.25 is the value that was settled by eye on the
+    // real desktop, just under that knee in full colour and still legible.
+    guard abs(ratio - 0.25) <= 0.015 else {
+        throw RenderError.failed(String(format: "unlit/lit ratio %.4f is not 0.25 +/- 0.015", ratio))
     }
     // A digit-1 face must not light a, d, e, f or g anywhere.
     for (index, value) in unlitSamples.enumerated() where value > lit * 0.4 {

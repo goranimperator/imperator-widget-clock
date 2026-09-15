@@ -4,34 +4,47 @@ import Foundation
 /// `ImperatorClock --group-check` proves, from the signed and installed binary,
 /// that the settings file the widget reads is reachable and round-trips.
 ///
-/// The store lives in the widget extension's own sandbox container. The app
-/// writes it by absolute path; the widget reads it as its own home. An App Group
-/// was tried first and failed: the entitlement is not honoured for a sandboxed,
-/// self-signed extension, and the widget silently kept its defaults.
+/// The store lives in the real home at `~/Library/Application Support/
+/// ImperatorClock`, and the sandboxed widget reaches it through a temporary
+/// exception entitlement. Two earlier homes failed: an App Group, whose
+/// identifier has to carry a signing team ID a self-signed build does not have,
+/// and the widget extension's own container, which macOS 27 closed to everyone
+/// outside it. The name and the flag are left alone on purpose: renaming them
+/// would break every GATES.md line and every note that cites them.
 enum GroupCheck {
     static func run() -> Int32 {
         print("sandboxed=\(isSandboxed())")
-        print("widget_container=\(SharedStore.directory.path)")
+        print("store=\(SharedStore.directory.path)")
         print("settings=\(SharedStore.settingsURL.path)")
 
-        var isDirectory: ObjCBool = false
-        let containerRoot = NSHomeDirectory()
-            + "/Library/Containers/" + SharedStore.widgetBundleID
-        guard FileManager.default.fileExists(atPath: containerRoot,
-                                             isDirectory: &isDirectory),
-              isDirectory.boolValue else {
-            print("FAIL the widget has no container yet; place the widget once")
+        // The store used to live in the widget's container and the check began
+        // by proving that container existed. It does not live there any more:
+        // macOS 27 closed outside access to another app's container, so the app
+        // could neither read nor write it. There is nothing to prove up front
+        // now; the write below is the whole test.
+
+        // Restoring what `load()` returned is only safe when it really read
+        // something. A file that exists but cannot be read also returns the
+        // defaults, and writing those back is how a gate destroys the settings
+        // it claims to round-trip.
+        let existing = SharedStore.loadResult()
+        if existing == .unreadable {
+            print("FAIL \(SharedStore.settingsURL.path) exists but could not be read")
+            print("     refusing to probe: the restore would overwrite it with defaults")
             return 1
         }
-
         let original = SharedStore.load()
         let probe = ClockPreferences(skin: .green, neon: false, hourFormat: .twelve)
         guard SharedStore.save(probe) else {
             print("FAIL could not write \(SharedStore.settingsURL.path)")
+            print("     run --report to see the real error")
             return 1
         }
         let readBack = SharedStore.load()
-        SharedStore.save(original)
+        guard SharedStore.save(original) else {
+            print("FAIL could not restore \(SharedStore.settingsURL.path); it now holds the probe")
+            return 1
+        }
 
         guard readBack == probe else {
             print("FAIL wrote \(probe) but read back \(readBack)")

@@ -29,9 +29,9 @@ public struct ClockPreferences: Codable, Equatable, Sendable {
         skin = (try? container.decodeIfPresent(ClockSkin.self, forKey: .skin)) as? ClockSkin ?? .white
         let storedHex = (try? container.decodeIfPresent(String.self, forKey: .customHex))
             as? String ?? ClockSkin.defaultCustomHex
-        customHex = storedHex.caseInsensitiveCompare(ClockSkin.legacyCustomHex) == .orderedSame
-            ? ClockSkin.defaultCustomHex
-            : storedHex
+        customHex = ClockSkin.legacyCustomHexes.contains {
+            storedHex.caseInsensitiveCompare($0) == .orderedSame
+        } ? ClockSkin.defaultCustomHex : storedHex
         neon = (try? container.decodeIfPresent(Bool.self, forKey: .neon)) as? Bool ?? false
         hourFormat = (try? container.decodeIfPresent(ClockHourFormat.self, forKey: .hourFormat))
             as? ClockHourFormat ?? .system
@@ -44,28 +44,49 @@ public struct ClockPreferences: Codable, Equatable, Sendable {
 
 /// The one piece of state the app and the widget share.
 ///
-/// It lives inside the *widget extension's own sandbox container*, not in an App
-/// Group. App Groups need the entitlement to be honoured for a sandboxed
-/// extension, and a self-signed build without a provisioning profile does not
-/// get that: the widget silently read nothing and kept falling back to its
-/// defaults. An extension may always read its own container, and the app is not
-/// sandboxed, so it can write there by absolute path. Same file, both sides,
-/// no entitlement involved.
+/// It lives in the real home at `~/Library/Application Support/ImperatorClock`,
+/// which the unsandboxed app owns outright. Two earlier homes did not survive:
+///
+/// An App Group needs its identifier prefixed with the signing team ID, and a
+/// self-signed build has no team. `containermanagerd` rejects it and the
+/// rejection kills the extension at sandbox init.
+///
+/// The widget extension's own container worked until macOS 27, which closed
+/// outside access to another app's container. The app then could neither read
+/// nor write it: `NSCocoaErrorDomain 257` on read and `513` on write, even when
+/// launched by LaunchServices so it was responsible for itself. Nothing the
+/// user changed reached the widget any more, and because the write failed
+/// silently the app kept showing the colour it had only in memory.
+///
+/// So the file sits where the app can always write, and the widget reaches it
+/// through a sandbox temporary exception declared in `ClockWidget.entitlements`.
+/// That exception is a plain entitlement: unlike an App Group it is not checked
+/// against a team ID, so a self-signed build can carry it.
 public enum SharedStore {
     public static let widgetBundleID = "com.goranimperator.ImperatorClock.ClockWidget"
 
-    /// Inside the widget `NSHomeDirectory()` is already the container's Data
-    /// directory. Outside it, that is the real home, so the container is
-    /// addressed the long way round.
+    /// The path the entitlement names, relative to the real home. Keep the two
+    /// in step: the sandbox grants exactly this prefix and nothing else.
+    public static let homeRelativePath = "Library/Application Support/ImperatorClock"
+
+    /// The real home, not the container.
+    ///
+    /// Inside a sandbox `NSHomeDirectory()` is redirected to the container, so
+    /// the app and the widget would compute different paths from it and never
+    /// meet. `getpwuid` reads the passwd entry and is not redirected.
+    static var realHome: URL {
+        if let passwd = getpwuid(getuid()) {
+            return URL(fileURLWithPath: String(cString: passwd.pointee.pw_dir))
+        }
+        // NSHomeDirectory() is the container inside the widget, which is the
+        // split this function exists to prevent: the app and the widget would
+        // read different files and both would think they succeeded. If the
+        // passwd lookup ever fails, fail where it can be seen.
+        preconditionFailure("no passwd entry for uid \(getuid()); cannot locate the real home")
+    }
+
     public static var directory: URL {
-        let home = URL(fileURLWithPath: NSHomeDirectory())
-        let containerData = "Library/Containers/\(widgetBundleID)/Data"
-        let base = home.path.contains(containerData)
-            ? home
-            : home.appendingPathComponent(containerData)
-        return base
-            .appendingPathComponent("Library/Application Support/ImperatorClock",
-                                    isDirectory: true)
+        realHome.appendingPathComponent(homeRelativePath, isDirectory: true)
     }
 
     public static var settingsURL: URL {
@@ -79,12 +100,60 @@ public enum SharedStore {
         directory.appendingPathComponent("widget-heartbeat.json")
     }
 
-    public static func load() -> ClockPreferences {
-        guard let data = try? Data(contentsOf: settingsURL),
+    /// The store's old home, readable only from inside the widget.
+    ///
+    /// Until macOS 27 the file lived in the widget extension's own container.
+    /// The app cannot reach it any more, but the extension always can: inside
+    /// the sandbox `NSHomeDirectory()` *is* that container. So the widget is
+    /// the one process that can carry a user's settings forward, and it does
+    /// that once, on its first timeline after the upgrade.
+    static var legacySettingsURL: URL {
+        URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Application Support/ImperatorClock", isDirectory: true)
+            .appendingPathComponent("settings.json")
+    }
+
+    /// Copy the pre-macOS-27 settings forward if nothing has been written to
+    /// the new location yet. Safe to call on every timeline: it does nothing
+    /// once the new file exists.
+    @discardableResult
+    public static func migrateFromWidgetContainer() -> Bool {
+        let manager = FileManager.default
+        guard !manager.fileExists(atPath: settingsURL.path) else { return false }
+        let legacy = legacySettingsURL
+        guard legacy != settingsURL,
+              let data = try? Data(contentsOf: legacy),
               let preferences = try? JSONDecoder().decode(ClockPreferences.self, from: data) else {
-            return ClockPreferences()
+            return false
         }
-        return preferences
+        return save(preferences)
+    }
+
+    /// What `load()` found, for callers that must not confuse "nothing saved
+    /// yet" with "saved, but unreadable". Writing defaults back over a file
+    /// that merely failed to read destroys the settings it was restoring.
+    public enum LoadResult: Equatable {
+        case loaded(ClockPreferences)
+        case missing
+        case unreadable
+    }
+
+    public static func loadResult() -> LoadResult {
+        let data: Data
+        do {
+            data = try Data(contentsOf: settingsURL)
+        } catch {
+            return (error as NSError).code == NSFileReadNoSuchFileError ? .missing : .unreadable
+        }
+        guard let preferences = try? JSONDecoder().decode(ClockPreferences.self, from: data) else {
+            return .unreadable
+        }
+        return .loaded(preferences)
+    }
+
+    public static func load() -> ClockPreferences {
+        if case .loaded(let preferences) = loadResult() { return preferences }
+        return ClockPreferences()
     }
 
     @discardableResult

@@ -6,9 +6,17 @@
 	     com.apple.security.application-groups here: containermanagerd rejects a
 	     group whose identifier is not prefixed with the signing team ID, and the
 	     rejection kills the extension at sandbox init, before it can answer
-	     getAllDescriptors. The widget reads its settings from its own container
-	     instead, which needs no entitlement. -->
+	     getAllDescriptors. -->
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!-- The settings file lives in the real home, because macOS 27 closed
+	     outside access to another app's container and the app could no longer
+	     write the widget's. A temporary exception is a plain entitlement and is
+	     not checked against a team ID, so a self-signed build can carry it.
+	     Keep this path in step with SharedStore.homeRelativePath. -->
+	<key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+	<array>
+		<string>/Library/Application Support/ImperatorClock/</string>
+	</array>
 </dict>
 </plist>

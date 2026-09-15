@@ -10,8 +10,7 @@
 </p>
 
 The face is drawn from real segment outlines rather than a font, so the unlit
-strokes stay visible at 5 percent the way the bars of an LCD clock never go
-fully dark. The digits stand upright: most LED clock faces lean, this one does
+strokes stay visible the way the bars of an LCD clock never go fully dark. The digits stand upright: most LED clock faces lean, this one does
 not.
 
 Five preset colours shared with the rest of the Imperator apps (Imperator Red,
@@ -65,8 +64,8 @@ Everything lives in the menu bar popover, and everything applies to the widget:
 
 | Setting | What it does |
 |---|---|
-| Colour | Five presets, plus a sixth swatch that opens the system colour wheel |
-| Neon glow | A near-white core inside three stacked coloured halos |
+| Colour | Five presets, plus a sixth swatch, marked with a pen, that opens the system colour wheel. Only the lit segments take the colour; the unlit ones stay neutral grey |
+| Neon glow | Three stacked halos around the digits. The digits keep their colour |
 | Hours | System, 24-hour or 12-hour. System follows the locale |
 | Open at Login | Registers a login item through `SMAppService` |
 
@@ -148,16 +147,23 @@ widget that was never installed:
 
 ## Where the settings live
 
-Not in an App Group, for the reason above. The file sits inside the widget
-extension's own sandbox container:
-
 ```
-~/Library/Containers/com.goranimperator.ImperatorClock.ClockWidget/Data/Library/Application Support/ImperatorClock/settings.json
+~/Library/Application Support/ImperatorClock/settings.json
 ```
 
-An extension may always read its own container, and the menu bar app is not
-sandboxed, so it writes there by absolute path. Same file, both sides, no
-entitlement involved. That file is the whole of the app's state.
+Not in an App Group: the identifier has to be prefixed with the signing team ID
+and a self-signed build has no team, so `containermanagerd` rejects it and the
+rejection kills the extension at sandbox init.
+
+Not in the widget extension's own container either, which is where it sat until
+macOS 27 closed outside access to another app's container. After that upgrade
+the app could neither read nor write it, so nothing the user changed reached the
+widget and the face fell back to its defaults, white with no glow.
+
+So the file sits where the unsandboxed app can always write, and the sandboxed
+widget reaches it through a sandbox temporary exception in its entitlements.
+That exception is a plain entitlement and is not checked against a team ID,
+which is the difference that makes it work where the App Group did not. That file is the whole of the app's state.
 
 The widget also writes a heartbeat next to it every time WidgetKit asks it for a
 timeline. It is the only evidence from outside that the extension really ran and

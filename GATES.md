@@ -40,11 +40,22 @@ Run every runnable gate with `make gates`.
 - [x] The installed app writes and reads the file the widget reads.
       CHECK: "/Applications/Imperator WidgetClock.app/Contents/MacOS/ImperatorClock" --group-check
       EXPECT: G2B_STORE_OK
-      EVIDENCE: store is the widget extension's own container. An App Group was
-      tried first and had to go: `containermanagerd` logs
-      `requesting [group.com.goranimperator.ImperatorClock]: REJECTED. Group
-      containers identifiers should be prefixed by requestor's team ID`, and the
-      rejection killed the extension at sandbox init.
+      EVIDENCE: store is `~/Library/Application Support/ImperatorClock`, and the
+      sandboxed widget reaches it through a temporary exception entitlement.
+      Two earlier homes failed. An App Group was tried first:
+      `containermanagerd` logs `requesting
+      [group.com.goranimperator.ImperatorClock]: REJECTED. Group containers
+      identifiers should be prefixed by requestor's team ID`, and the rejection
+      killed the extension at sandbox init. The widget's own container worked
+      until macOS 27 closed outside access to another app's container; the app
+      then reported `NSCocoaErrorDomain 257` on read and `513` on write even
+      when launched by LaunchServices so it was responsible for itself. Measured
+      with `--report`, not inferred: running a check flag from a shell attributes
+      the request to the shell, not the app, so it proves nothing either way.
+      After the move the widget's own heartbeat reads
+      `"container": "/Users/goran/Library/Application Support/ImperatorClock"`
+      with the skin and neon values the app had just written, which is the
+      sandboxed side proving it can reach the file.
 
 ## G11 The menu bar icon matches its siblings and its colon is centred
 - [x] The drawn icon is the same size, border weight and corner radius as the
@@ -95,10 +106,19 @@ Run every runnable gate with `make gates`.
       measured, not seen.
 
 ## G3 Unlit segments render at 5 %
-- [x] Measured luminance of an unlit segment is 0.05 of a lit one, +/- 0.015.
+- [x] Measured luminance of an unlit segment is 0.25 of a lit one, +/- 0.015.
       CHECK: ./.build/release/ClockPreview --verify
       EXPECT: G3_DIM_OK
       EVIDENCE: `lit=255.0 unlit=25.0 ratio=0.0980`
+      It was 0.05 until macOS 27. `Dim widgets on desktop` composites the widget
+      from outside at about 0.75 and in greyscale, and not linearly: sourced at
+      0.30 the ghosts disappeared outright, 0.37 measured 0.188 on screen and
+      0.45 measured 0.251. At 0.05 they were gone whenever a window covered the
+      desktop. Nothing in the code can react to it, measured with a probe that
+      drew the face red whenever the rendering mode was not `.fullColor` and
+      produced zero red pixels with Dim on. 0.25 was settled by eye against the
+      real dimmed desktop; the popover preview is never dimmed and cannot judge
+      it.
 
 ## G10 Every junction has the same channel
 - [x] The gap where two segments meet is the same width at all eight junctions

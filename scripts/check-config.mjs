@@ -31,12 +31,17 @@ expect(defaultHex !== undefined && defaultHex.toUpperCase() !== 'FF7A18',
   `the default custom colour is still the old orange (${defaultHex})`);
 
 const styleSource = read('Sources/ClockCore/ClockStyle.swift');
-expect(/dimOpacity: Double = 0\.05/.test(styleSource),
-  'ClockStyle.dimOpacity does not default to 0.05');
-expect(/glowLayers/.test(styleSource) && /neonCore/.test(styleSource),
-  'ClockStyle is missing the neon core colour or the glow layers');
-expect(/neonCoreSaturation/.test(styleSource) && /neonCoreBrightness/.test(styleSource),
-  'the neon core is no longer derived from the skin hue');
+expect(/dimOpacity: Double = 0\.25/.test(styleSource),
+  'ClockStyle.dimOpacity does not default to 0.25');
+expect(/glowLayers/.test(styleSource),
+  'ClockStyle is missing the glow layers');
+// Neon adds a halo and nothing else. A core that drops saturation makes the
+// digits paler the moment the glow is switched on, which is the opposite of
+// what the glow is for.
+expect(!/neonCore/.test(styleSource),
+  'the neon core is back, so switching the glow on washes the colour out');
+expect(/litColor: Color \{ flatLitColor \}/.test(styleSource),
+  'the lit colour changes with the glow instead of staying put');
 
 const sharedSource = read('Sources/ClockCore/SharedStore.swift');
 expect(/var skin: ClockSkin/.test(sharedSource) && /var neon: Bool/.test(sharedSource)
@@ -137,6 +142,26 @@ expect(/NSApp\.activate\(ignoringOtherApps: true\)/.test(aboutPanel),
   'the About panel is never activated, so it opens behind the frontmost app');
 expect(/setContentSize\(/.test(aboutPanel) && /layoutSubtreeIfNeeded\(\)/.test(aboutPanel),
   'the panel does not lay out and re-assert its size, so it opens 0pt tall');
+
+// The sandboxed widget reaches the store through a temporary exception naming
+// an exact path. That string, SharedStore.homeRelativePath and the path this
+// script reads are three hand-kept copies of one value; if they drift, every
+// other gate still passes and the widget silently falls back to its defaults,
+// which is how the App Group and the container traps both presented.
+const storeSource = read('Sources/ClockCore/SharedStore.swift');
+const relativePath = storeSource.match(/homeRelativePath = "([^"]+)"/)?.[1];
+expect(relativePath !== undefined, 'SharedStore has no homeRelativePath');
+if (relativePath) {
+  const entitlements = read('Resources/ClockWidget.entitlements');
+  const granted = `/${relativePath}/`;
+  expect(entitlements.includes('com.apple.security.temporary-exception.files.'
+    + 'home-relative-path.read-write'),
+    'the widget has no home-relative-path exception, so it cannot read the store');
+  expect(entitlements.includes(`<string>${granted}</string>`),
+    `the entitlement does not grant "${granted}", which is where SharedStore reads`);
+  expect(read('scripts/check-widget-live.mjs').includes(relativePath),
+    'this gate script reads a different path than SharedStore does');
+}
 
 // A menu bar app with a Dock tile is not a menu bar app. The runtime
 // setActivationPolicy(.accessory) call is not enough on its own: LaunchServices

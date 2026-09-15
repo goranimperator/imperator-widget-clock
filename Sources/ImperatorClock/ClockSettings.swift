@@ -26,6 +26,14 @@ final class ClockSettings: ObservableObject {
     @Published var hourFormat: ClockHourFormat {
         didSet { publishShared() }
     }
+    /// True when the last write to the shared file failed.
+    ///
+    /// `SharedStore.save` has always returned a Bool and nothing ever read it.
+    /// That is why macOS 27 closing the widget's container went unnoticed for a
+    /// version: the popover kept showing a colour it held only in memory while
+    /// the widget read the old file. A silent write is the bug; the popover
+    /// says so now.
+    @Published private(set) var writeFailed = false
     private init() {
         let shared = SharedStore.load()
         skin = shared.skin
@@ -56,8 +64,11 @@ final class ClockSettings: ObservableObject {
         publishWorkItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            SharedStore.save(self.preferences)
-            WidgetCenter.shared.reloadAllTimelines()
+            let wrote = SharedStore.save(self.preferences)
+            self.writeFailed = !wrote
+            // Only nudge WidgetKit when there is something new to read. A
+            // reload after a failed write just re-renders the old file.
+            if wrote { WidgetCenter.shared.reloadAllTimelines() }
         }
         publishWorkItem = item
         DispatchQueue.main.asyncAfter(deadline: .now() + ClockSettings.publishDelay,

@@ -20,6 +20,7 @@ struct SettingsView: View {
             header
             Divider()
             VStack(alignment: .leading, spacing: 16) {
+                if settings.writeFailed { writeFailureNotice }
                 preview
                 colourSection
                 glowSection
@@ -39,7 +40,14 @@ struct SettingsView: View {
     // MARK: - Header and footer
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .center, spacing: 8) {
+            // The app's own menu bar glyph at 16pt, left of the name, the way
+            // imperator-free-games and the other popover apps do it. Brandbook
+            // 16.1 keeps the sigil out of the header; this is the app's icon,
+            // not the sigil.
+            Image(nsImage: SettingsView.headerIcon)
+                .renderingMode(.template)
+                .foregroundStyle(.primary)
             Text("Imperator WidgetClock")
                 .font(.headline)
             Spacer()
@@ -47,6 +55,10 @@ struct SettingsView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
+
+    /// Drawn once. The header is rebuilt on every settings change, and the
+    /// glyph never varies.
+    private static let headerIcon = StatusItemIcon.make(size: 16)
 
     private var footer: some View {
         HStack(spacing: 12) {
@@ -73,6 +85,17 @@ struct SettingsView: View {
         .padding(.vertical, 10)
     }
 
+    /// Shown only when the shared file could not be written. Without it a
+    /// failed write looks exactly like a working one, which is how the macOS 27
+    /// breakage stayed invisible.
+    private var writeFailureNotice: some View {
+        Text("Could not save to \(SharedStore.directory.path). The widget will "
+             + "keep showing its last saved settings.")
+            .font(.system(size: 10))
+            .foregroundStyle(AppColors.brand)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     // MARK: - Sections
 
     private var colourSection: some View {
@@ -80,9 +103,11 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     ForEach(ClockSkin.presets, id: \.self) { skin in
-                        SkinSwatch(color: ClockStyle(skin: skin, neon: false).flatLitColor,
+                        let swatch = ClockStyle(skin: skin, neon: false)
+                        SkinSwatch(color: swatch.flatLitColor,
                                    help: skin.displayName,
-                                   isSelected: settings.skin == skin) {
+                                   isSelected: settings.skin == skin,
+                                   components: swatch.flatLitComponents) {
                             settings.skin = skin
                         }
                     }
@@ -90,16 +115,27 @@ struct SettingsView: View {
                     // opens the system colour picker and selects the custom
                     // skin, so there is one control rather than a swatch that
                     // has to be armed before a separate picker means anything.
-                    SkinSwatch(color: customColor,
+                    let custom = ClockStyle(skin: .custom, neon: false,
+                                            customHex: settings.customHex)
+                    SkinSwatch(color: custom.flatLitColor,
                                help: "Pick any colour",
-                               isSelected: settings.skin == .custom) {
+                               isSelected: settings.skin == .custom,
+                               components: custom.flatLitComponents,
+                               showsPen: true) {
                         openColorPanel()
                     }
                 }
-                Text("The last swatch opens the colour wheel. Pick any colour you like.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("The swatch with the pen opens the colour wheel. Pick any colour you like.")
+                    // Neither the app nor the widget is told when this is on:
+                    // a desktop widget always renders in .fullColor and macOS
+                    // composites the dimming over it. So this states it.
+                    Text("With Dim widgets on desktop turned on, macOS draws the widget "
+                         + "in greyscale, so your colour only shows when the desktop is bare.")
+                }
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -120,6 +156,10 @@ struct SettingsView: View {
 
     // MARK: - Custom colour
 
+    /// The raw picked colour, for seeding the colour wheel. The swatch shows
+    /// `flatLitColor` instead, because that is what the face draws: a dark pick
+    /// comes back near-white on the clock, and a swatch showing the raw value
+    /// would contradict the preview sitting right above it.
     private var customColor: Color {
         let c = ClockSkin.components(fromHex: settings.customHex)
         return Color(.sRGB, red: c.red, green: c.green, blue: c.blue, opacity: 1)
@@ -205,29 +245,67 @@ struct HourFormatPicker: View {
     }
 }
 
-/// Brandbook 13: a skin swatch has a 3pt radius and glows in its own colour
-/// while selected.
+/// Brandbook 13: a skin swatch has a 3pt radius. The book also gives the
+/// selected one a glow in its own colour; that was dropped on request, because
+/// a row of six saturated swatches with one haloed reads as smeared rather than
+/// selected. The 2pt white border carries the selection on its own.
 struct SkinSwatch: View {
     let color: Color
     let help: String
     let isSelected: Bool
+    /// The fill as components, so the border can be inked against it. Every
+    /// swatch passes this.
+    var components: (red: Double, green: Double, blue: Double)?
+    /// Only the swatch that opens the colour wheel carries a pen. Five swatches
+    /// that only select and a sixth that also edits look identical until you
+    /// click one, and a pen on a preset would promise an edit that is not there.
+    var showsPen: Bool = false
     let action: () -> Void
+
+    init(color: Color,
+         help: String,
+         isSelected: Bool,
+         components: (red: Double, green: Double, blue: Double)? = nil,
+         showsPen: Bool = false,
+         action: @escaping () -> Void) {
+        self.color = color
+        self.help = help
+        self.isSelected = isSelected
+        self.components = components
+        self.showsPen = showsPen
+        self.action = action
+    }
 
     var body: some View {
         Button(action: action) {
             RoundedRectangle(cornerRadius: 3, style: .continuous)
                 .fill(color)
                 .frame(height: 24)
+                .overlay(pen)
+                // Selection is the glow, not a border. A white border vanished
+                // on the Classic White swatch, and brandbook 13's glow reads on
+                // every fill because it sits outside the swatch.
                 .overlay(
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .strokeBorder(Color.white.opacity(isSelected ? 0.9 : 0.12),
-                                      lineWidth: isSelected ? 2 : 1)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        .opacity(isSelected ? 0 : 1)
                 )
                 .shadow(color: isSelected ? color.opacity(0.9) : .clear, radius: 4)
         }
         .buttonStyle(.plain)
         .cursor(.pointingHand)
         .help(help)
+    }
+
+    @ViewBuilder
+    private var pen: some View {
+        if showsPen, let components, let glyph = PenIcon.glyph {
+            // Black on a pale colour, white on a dark one. A fixed ink would
+            // disappear at one end of the wheel or the other.
+            Image(nsImage: glyph)
+                .renderingMode(.template)
+                .foregroundStyle(PenIcon.ink(on: components))
+        }
     }
 }
 

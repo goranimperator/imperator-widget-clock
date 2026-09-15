@@ -18,7 +18,8 @@ extension and then the app, installs to `/Applications`, and launches.
 The bundle is named after the app, "Imperator WidgetClock", the same way the
 other Imperator apps are. The SwiftPM product, the executable and the bundle
 identifier all stay `ImperatorClock`: the identifier keys the widget's sandbox
-container, which is where the shared settings file lives.
+container, and a widget's `kind` is resolved against it. The shared settings
+file used to live in that container and does not any more, see trap 4.
 
 ```bash
 make run
@@ -78,17 +79,46 @@ Four targets:
 
 `ClockGhostShape` draws every segment of every digit plus both colon dots.
 `ClockLitShape` draws only the ones that are on. The ghost sits underneath at
-`ClockStyle.dimOpacity`, which is 0.05: that is the "unlit strokes still
-visible" requirement, and gate G3 measures it in the rendered pixels rather than
-trusting the constant.
+`ClockStyle.dimOpacity`, which is 0.25, and gate G3 measures it in the rendered
+pixels rather than trusting the constant.
+
+It was 0.05 until macOS 27, and 0.05 is the right number for an undimmed face.
+It is the wrong number for the face people actually look at. `Desktop & Dock` >
+`Widgets` > `Dim widgets on desktop` composites the widget from outside at
+about 0.75 and in greyscale, and it is not linear: a ghost sourced at 0.30
+disappeared outright, 0.37 came back at 0.188 and 0.45 at 0.251. At 0.05 the
+ghosts were gone entirely whenever any window covered the desktop, which is
+most of the time.
+
+Nothing in the code can react to that. A desktop widget always renders in
+`.fullColor`; `.vibrant` is for Lock Screen and StandBy. This was measured, not
+assumed: a probe that drew the whole face red whenever the mode was not
+`.fullColor` produced zero red pixels with Dim on. Do not add a branch on
+`widgetRenderingMode` for the desktop; it will never run.
+
+0.25 was settled by eye against the real dimmed desktop. The popover preview is
+never dimmed and shows the ghosts at any value, so it cannot be used to judge
+this.
+
+The ghost is a neutral grey, not the chosen colour dimmed down. A real LCD's
+dark bars do not take the tint of the lit ones, and a magenta face with magenta
+ghosts read as a smudge. `offColor` therefore ignores the skin entirely.
 
 All geometry is axis-aligned. The digits are upright by design, so no shear,
 skew or rotation may enter `ClockCore`; gate G4 enforces it.
 
-Neon mode is the `.neon` rule from imperator-deals `src/styles.css`: a near-white
-`#f7fff9` core with three stacked coloured glows. The widest CSS layer floods a
-seven-segment glyph, which is far denser than text, so `ClockStyle.glowLayers`
-dials its opacity back the way `sigilPulseRed` does.
+Neon mode is the glow from the `.neon` rule in imperator-deals
+`src/styles.css`, and only the glow. The CSS also swaps the text colour for a
+near-white `#f7fff9`, and that was ported once as a core at a third of the
+skin's saturation. On a seven-segment glyph it washes the colour out: switching
+the glow on made the digits paler rather than brighter, and a saturated pink
+came back almost white. The digits keep their colour now and gain a halo, so
+`litColor` is `flatLitColor` whether or not neon is on. G2 fails on the word
+`neonCore` for that reason.
+
+The widest CSS layer floods a seven-segment glyph, which is far denser than
+text, so `ClockStyle.glowLayers` dials its opacity back the way `sigilPulseRed`
+does.
 
 Colours match `Skin` in imperator-retropong. `litColor` pushes brightness to full
 in HSB and leaves hue and saturation alone; lifting towards white instead turned
@@ -106,11 +136,12 @@ built and then removed on request: the clock is a widget and nothing else.
 Do not reintroduce either as a setting. Gate G2 fails on the words `pulse` and
 `colonLit` in `ClockStyle`, `SharedStore` and `SettingsView` for that reason.
 
-## Three traps that each looked like a different bug
+## Four traps that each looked like a different bug
 
 The first two made the widget register with `pluginkit` and then render
 nothing, which looks identical to a widget that was never installed. The third
-put a Dock tile on a menu bar app.
+put a Dock tile on a menu bar app. The fourth arrived with macOS 27 and made
+every setting stop reaching the widget.
 
 1. **The entry point.** Every shipping macOS widget binary references
    `_NSExtensionMain`; a SwiftPM executable does not, so WidgetKit's `@main`
@@ -137,6 +168,37 @@ put a Dock tile on a menu bar app.
    ```
 
    `UIElement` is right. `Foreground` means the tile is back.
+4. **The shared file cannot live in the widget's container.** It did until
+   macOS 27, which closed outside access to another app's container. After the
+   upgrade the app could neither read nor write it: `NSCocoaErrorDomain 257` on
+   read, `513` on write. Nothing the user changed reached the widget, and
+   because `SharedStore.save` returns a Bool that nothing checks, the popover
+   went on showing a colour it held only in memory. The face stayed white with
+   no glow, which is what the defaults are.
+
+   The file lives in the real home now, at
+   `~/Library/Application Support/ImperatorClock`, and the sandboxed widget
+   reaches it through
+   `com.apple.security.temporary-exception.files.home-relative-path.read-write`.
+   A temporary exception is a plain entitlement and is not checked against a
+   team ID, which is what made the App Group impossible. Keep the path in the
+   entitlement in step with `SharedStore.homeRelativePath`.
+
+   `NSHomeDirectory()` is redirected to the container inside a sandbox, so the
+   app and the widget would compute different paths from it. `SharedStore`
+   reads the passwd entry with `getpwuid` instead, which is not redirected.
+
+When diagnosing this, do not run a check flag from a shell and believe the
+answer. TCC attributes a file request to the *responsible* process, and for a
+binary started from a terminal that is the terminal, not the app. Ask the app
+itself:
+
+```bash
+open -n -a "/Applications/Imperator WidgetClock.app" --args --report /tmp/store.txt
+```
+
+`--report` writes the settings, the heartbeat and a write probe with the real
+`NSError`, rather than the Bool `SharedStore.save` returns.
 
 When the widget looks dead, read the real logs. `log` is a zsh builtin that
 shadows the tool, so always call `/usr/bin/log`:
@@ -147,6 +209,14 @@ shadows the tool, so always call `/usr/bin/log`:
 
 `getAllDescriptors result.` means the extension answered. `error result` means it
 died first.
+
+Two more things the logs will show after a reinstall, both self-inflicted.
+`bundleStubNotSupported ... "Bundle version did not match; LaunchServices DB may
+need to be rebuilt"` is chronod holding a cached stub for the previous build;
+it clears itself, and `killall chronod` clears it at once. And chronod keeps the
+*running* extension process alive across a reinstall, so a freshly installed
+appex may not be the one answering. `killall chronod` is the only reliable way
+to be sure a measurement came from the build just installed.
 
 ## Gates
 
@@ -189,6 +259,21 @@ had to deviate or be built by hand:
 3. **`HourFormatPicker` replaces `.pickerStyle(.segmented)`.** The system control
    sizes itself to its widest label and centres the remainder, so it will not
    fill the row.
+
+The swatch row follows brandbook 13: the selected swatch glows in its own
+colour and carries no border. A white border was tried instead and had to go,
+because Classic White is a pure white fill and the selection became invisible
+on exactly one swatch. The glow sits outside the fill, so it reads on all six.
+
+The custom swatch carries Lucide's `pen`, because five swatches that only
+select and a sixth that also edits look identical until you click one. Only
+that swatch gets it: a pen on a preset promises an edit that is not there. The
+pen is black or white, whichever WCAG contrast says is readable on the colour
+under it, so it survives the whole wheel rather than disappearing at one end.
+
+Both swatch fills are `flatLitColor`, not the raw value, because that is what
+the face draws. A dark pick comes back near-white on the clock, and a swatch
+showing the raw colour would contradict the preview directly above it.
 
 `AppleAccentColor` is pinned to 0 in `applicationWillFinishLaunching`, and
 `NSColorPanel.shared.isRestorable` is switched off in the same place: window

@@ -81,28 +81,37 @@ preview:
 	open build/preview
 
 # Every runnable gate in GATES.md, in order. G8 is a visual review.
+gates: export SHELL := /bin/bash
 gates: build
 	@swift build -c release 2>&1 | grep -c "error:" | grep -qx 0 && echo G1_BUILD_OK
 	@node scripts/check-config.mjs
 	@node scripts/check-upright.mjs
 	@./.build/release/ClockPreview --verify
-	@./.build/release/ClockPreview --verify-gaps | tail -1
+	@./.build/release/ClockPreview --verify-gaps | tail -1; \
+		test $${PIPESTATUS[0]:-$$?} -eq 0
 	@codesign --verify --deep --strict "$(BUNDLE)" \
 		&& codesign --verify --strict "$(APPEX)" && echo G5_SIGN_OK
 	@pluginkit -mAv -p com.apple.widgetkit-extension 2>/dev/null \
 		| grep -qi "ImperatorClock.ClockWidget" && echo G6_WIDGET_REGISTERED \
 		|| echo "G6 SKIPPED -- run make install first"
-	@./.build/release/$(BINARY_NAME) --icon-check | tail -1
+	@./.build/release/$(BINARY_NAME) --icon-check | tail -1; \
+		test $${PIPESTATUS[0]:-$$?} -eq 0
 	# Before --group-check, which writes a probe to the settings file: that
 	# moves its mtime, and the live check will not compare a heartbeat older
 	# than the settings it is supposed to have read.
 	@node scripts/check-widget-live.mjs
-	@"/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" --group-check \
-		| tail -1 || echo "G2B SKIPPED -- run make install first"
+	@if [ -x "/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" ]; then \
+		out=$$("/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" --group-check) \
+			|| { echo "$$out"; exit 1; }; \
+		echo "$$out" | tail -1; \
+	else echo "G2B SKIPPED -- run make install first"; fi
 	# Reads CFBundleShortVersionString and CFBundleVersion, so it needs the
 	# bundle rather than the bare binary in .build.
-	@"/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" --about-check \
-		| tail -1 || echo "G12 SKIPPED -- run make install first"
+	@if [ -x "/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" ]; then \
+		out=$$("/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" --about-check) \
+			|| { echo "$$out"; exit 1; }; \
+		echo "$$out" | tail -1; \
+	else echo "G12 SKIPPED -- run make install first"; fi
 
 clean:
 	rm -rf build dist

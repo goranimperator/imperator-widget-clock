@@ -10,36 +10,32 @@ public struct ClockStyle: Equatable, Sendable {
     /// `.neon` / `.neon-<colour>` in imperator-deals `src/styles.css`.
     public var neon: Bool
     /// Brightness of a segment that is off, relative to one that is on.
-    /// Five per cent: there if you look, never loud enough to read as lit.
+    ///
+    /// Measured against macOS itself. `Dim widgets on desktop` composites the
+    /// whole widget at about 0.75 and in greyscale, from outside: a desktop
+    /// widget always renders in `.fullColor` and is never told, so nothing here
+    /// can react to it. A probe that drew the face red whenever the mode was
+    /// not `.fullColor` produced zero red pixels with Dim on.
+    ///
+    /// The compositor is not linear about it either. Sourced at 0.30 the ghost
+    /// segments disappeared outright; 0.37 came back at 0.188 and 0.45 at
+    /// 0.251, so it drops anything below roughly 0.30. At the old 0.05 the
+    /// ghosts were nowhere, and the face stopped reading as an LCD exactly when
+    /// the desktop was covered, which is most of the time.
+    ///
+    /// 0.25 was settled by eye against the real dimmed desktop. Do not lower it
+    /// without looking there: the popover preview is not dimmed and shows the
+    /// ghosts at any value.
     public var dimOpacity: Double
 
     public init(skin: ClockSkin,
                 neon: Bool,
                 customHex: String = ClockSkin.defaultCustomHex,
-                dimOpacity: Double = 0.05) {
+                dimOpacity: Double = 0.25) {
         self.skin = skin
         self.customHex = customHex
         self.neon = neon
         self.dimOpacity = dimOpacity
-    }
-
-    /// `.neon { color: #f7fff9 }` is the CSS core, but on a seven-segment glyph
-    /// a pure near-white core loses the colour entirely: the reference face
-    /// reads as light lavender, not white. So the core is the skin's own hue
-    /// lifted most of the way towards white instead.
-    /// Measured off the reference face: the lit core sits near #c9a3f5, which is
-    /// the same hue as the glow at about a third of its saturation. Mixing
-    /// towards white instead pulls purple towards magenta, so the core keeps the
-    /// hue and drops the saturation.
-    public static let neonCoreSaturation: Double = 0.34
-    public static let neonCoreBrightness: Double = 0.97
-
-    var neonCore: Color {
-        let (hue, saturation, _) = ClockSkin.hsb(from: baseComponents)
-        let core = ClockSkin.rgb(hue: hue,
-                                 saturation: min(saturation, ClockStyle.neonCoreSaturation),
-                                 brightness: ClockStyle.neonCoreBrightness)
-        return Color(.sRGB, red: core.red, green: core.green, blue: core.blue, opacity: 1)
     }
 
     /// The chosen colour, preset or custom, before any lighting is applied.
@@ -53,14 +49,40 @@ public struct ClockStyle: Equatable, Sendable {
     }
 
     /// Brightness pushed to full, hue and saturation untouched.
-    public var flatLitColor: Color {
+    public var flatLitComponents: (red: Double, green: Double, blue: Double) {
         let (hue, saturation, brightness) = ClockSkin.hsb(from: baseComponents)
-        let lit = ClockSkin.rgb(hue: hue, saturation: saturation, brightness: max(brightness, 0.98))
+        return ClockSkin.rgb(hue: hue, saturation: saturation, brightness: max(brightness, 0.98))
+    }
+
+    public var flatLitColor: Color {
+        let lit = flatLitComponents
         return Color(.sRGB, red: lit.red, green: lit.green, blue: lit.blue, opacity: 1)
     }
 
-    public var litColor: Color { neon ? neonCore : flatLitColor }
-    public var offColor: Color { baseColor.opacity(dimOpacity) }
+    /// The same colour whether or not the glow is on.
+    ///
+    /// Neon used to swap the core for the skin's hue at a third of its
+    /// saturation and near-full brightness, which is the CSS `.neon` rule read
+    /// literally. On a seven-segment glyph that washes the colour out: turning
+    /// the glow on made the digits paler rather than brighter, and a saturated
+    /// pink came back almost white. The glow is the effect; the digits keep
+    /// their colour and gain a halo around them.
+    public var litColor: Color { flatLitColor }
+    /// An opaque colour, not the lit colour at low alpha.
+    ///
+    /// Over the near-black face the two look the same, and gate G3 measures the
+    /// rendered pixels either way. They differ outside full colour: macOS keys
+    /// its material on alpha there, so a ghost drawn at 0.05 alpha is dropped
+    /// entirely and the face stops reading as an LCD. Scaling the components
+    /// instead keeps the segment opaque and lets it through.
+    public var offColor: Color {
+        // Neutral grey, not the chosen colour dimmed down. A segment that is
+        // off is off: a real LCD's dark bars do not take the tint of the lit
+        // ones, and a magenta face with magenta ghosts read as a smudge rather
+        // than as an unlit segment. This is what the ghosts have always looked
+        // like under Classic White, now applied to every skin.
+        Color(.sRGB, red: dimOpacity, green: dimOpacity, blue: dimOpacity, opacity: 1)
+    }
 
     /// The `.neon` glow, ported from three stacked CSS drop-shadows. Radii are
     /// fractions of the digit height; a SwiftUI shadow radius is half a CSS

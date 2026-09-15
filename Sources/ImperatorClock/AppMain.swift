@@ -26,6 +26,10 @@ struct ImperatorClockApp {
         if CommandLine.arguments.contains("--about-check") {
             exit(AboutCheck.run())
         }
+        if let index = CommandLine.arguments.firstIndex(of: "--report"),
+           CommandLine.arguments.count > index + 1 {
+            exit(StoreReport.run(path: CommandLine.arguments[index + 1]))
+        }
         // An unrecognised flag used to fall straight through to `run()`, which
         // launched a second copy of the app with a second menu bar icon. A
         // check that is run against an older installed binary, which is exactly
@@ -35,10 +39,10 @@ struct ImperatorClockApp {
                 "ImperatorClock: unknown option \(unknown)\n"
                     .data(using: .utf8)!
             )
-            FileHandle.standardError.write(
-                "usage: ImperatorClock [--group-check|--widget-status|--icon-check|--about-check]\n"
-                    .data(using: .utf8)!
-            )
+            let usage = "usage: ImperatorClock "
+                + "[--group-check|--widget-status|--icon-check|--about-check]\n"
+                + "       ImperatorClock --report <absolute path>\n"
+            FileHandle.standardError.write(usage.data(using: .utf8)!)
             exit(2)
         }
         let application = NSApplication.shared

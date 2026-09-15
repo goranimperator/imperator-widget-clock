@@ -29,7 +29,10 @@ struct ClockProvider: TimelineProvider {
     private static let entryCount = 90
 
     private func preferences() -> ClockPreferences {
-        SharedStore.load()
+        // The extension is the only process that can still read the old
+        // container, so it is the only one that can carry the settings over.
+        SharedStore.migrateFromWidgetContainer()
+        return SharedStore.load()
     }
 
     func placeholder(in context: Context) -> ClockEntry {
@@ -42,7 +45,10 @@ struct ClockProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ClockEntry>) -> Void) {
         let preferences = preferences()
-        SharedStore.writeHeartbeat(preferences, family: preferences.skin.rawValue)
+        // The family WidgetKit asked for, not the skin. It recorded the skin
+        // under `family` for a while, which made the heartbeat claim a family
+        // called "red" and hid which size had actually been rendered.
+        SharedStore.writeHeartbeat(preferences, family: "\(context.family)")
 
         let calendar = Calendar.current
         let now = Date()
@@ -58,6 +64,9 @@ struct ClockProvider: TimelineProvider {
     }
 }
 
+/// Nothing here reacts to `Dim widgets on desktop`, and nothing can: a desktop
+/// widget always renders in `.fullColor` and the dimming is composited from
+/// outside. See the note on `ClockStyle.dimOpacity`.
 struct ClockWidgetView: View {
     var entry: ClockEntry
 
