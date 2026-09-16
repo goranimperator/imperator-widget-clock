@@ -69,6 +69,14 @@ install: build
 	rm -rf "/Applications/$(APP_NAME).app"
 	cp -R "$(BUNDLE)" "/Applications/$(APP_NAME).app"
 	@echo "Installed: /Applications/$(APP_NAME).app"
+	# chronod keeps the running extension process and the snapshot it drew
+	# across a reinstall, so the placed widget goes on showing the previous
+	# build and, after enough reinstalls in a row, an empty face: a black
+	# rounded rectangle with no digits and no ghosts. The extension itself is
+	# fine and goes on writing its heartbeat, which is why the live gate still
+	# passes. Restarting chronod is the only reliable way to make the build
+	# that was just installed the one on screen.
+	@killall chronod 2>/dev/null || true
 	open "/Applications/$(APP_NAME).app"
 
 run: build

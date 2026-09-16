@@ -216,7 +216,25 @@ need to be rebuilt"` is chronod holding a cached stub for the previous build;
 it clears itself, and `killall chronod` clears it at once. And chronod keeps the
 *running* extension process alive across a reinstall, so a freshly installed
 appex may not be the one answering. `killall chronod` is the only reliable way
-to be sure a measurement came from the build just installed.
+to be sure a measurement came from the build just installed. `make install`
+does it for that reason.
+
+Left alone across several reinstalls in a row, this shows up as a widget that
+draws nothing: a black rounded rectangle with no digits and no ghosts, which
+looks exactly like a face rendered in a colour that vanishes under
+`Dim widgets on desktop`. The two are told apart by capturing the widget's own
+window rather than the screen, since the window is there whether or not
+anything covers the desktop:
+
+```bash
+screencapture -x -o -l "$(...window id of "Imperator WidgetClock"...)" /tmp/widget.png
+```
+
+The window is owned by Notification Centre, is named after the app and is
+360x180 for a medium widget. `CGWindowListCopyWindowInfo` finds it; the app
+itself is not the owner, so `pgrep` and the heartbeat say nothing about what is
+on screen. G6 passes in this state: the extension is alive and writing its
+heartbeat, and only the picture chronod is showing is stale.
 
 ## Gates
 
