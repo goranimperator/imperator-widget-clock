@@ -28,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.appearance = NSAppearance(named: .darkAqua)
         NSColorPanel.shared.orderOut(nil)
         setUpStatusItem()
+        // A new build of the app means a new build of the widget inside it, and
+        // chronod will go on showing the old one until it is restarted.
+        WidgetRefresh.afterInstall()
     }
 
     private func setUpStatusItem() {

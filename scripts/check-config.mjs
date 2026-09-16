@@ -66,6 +66,19 @@ expect(/Dim widgets on desktop/.test(settingsView),
 expect(/Use Classic White while Dim is on\./.test(settingsView),
   'the popover no longer recommends Classic White while Dim is on');
 const appDelegateSource = read('Sources/ImperatorClock/AppDelegate.swift');
+// chronod serves the extension and the snapshot it drew from before the
+// install, so without this the widget on the desktop shows the previous build
+// and eventually nothing at all. The heartbeat keeps being written either way,
+// so no other gate sees it.
+expect(/WidgetRefresh\.afterInstall\(\)/.test(appDelegateSource),
+  'the app does not refresh the widget after an install, so chronod keeps the old build');
+const refreshSource = read('Sources/ImperatorClock/WidgetRefresh.swift');
+expect(/killall/.test(refreshSource) && /chronod/.test(refreshSource),
+  'WidgetRefresh no longer restarts chronod, and a timeline reload alone does not clear its snapshot');
+// Restarting chronod redraws every widget on the desktop, so it may only
+// happen when the build has actually moved.
+expect(/CFBundleVersion/.test(refreshSource) && /previous != current/.test(refreshSource),
+  'WidgetRefresh restarts chronod on every launch rather than only on a new build');
 // Brandbook 7.2: every toggle is a brand-tinted switch, and they all sit on the
 // same two columns, so no toggle may carry an indent of its own.
 expect(!/\.padding\(\.leading,\s*\d+\)/.test(settingsView),
