@@ -90,15 +90,36 @@ disappeared outright, 0.37 came back at 0.188 and 0.45 at 0.251. At 0.05 the
 ghosts were gone entirely whenever any window covered the desktop, which is
 most of the time.
 
-Nothing in the code can react to that. A desktop widget always renders in
-`.fullColor`; `.vibrant` is for Lock Screen and StandBy. This was measured, not
-assumed: a probe that drew the whole face red whenever the mode was not
-`.fullColor` produced zero red pixels with Dim on. Do not add a branch on
+The widget is never told. A desktop widget always renders in `.fullColor`;
+`.vibrant` is for Lock Screen and StandBy. This was measured, not assumed: a
+probe that drew the whole face red whenever the mode was not `.fullColor`
+produced zero red pixels with Dim on. Do not add a branch on
 `widgetRenderingMode` for the desktop; it will never run.
+
+The setting itself is readable, and this file claimed otherwise for a version.
+`DesktopSettings.appex` writes the three-valued `Dim widgets on desktop` to
+`com.apple.widgets` under `widgetAppearance`, and an unsandboxed process can
+read it. The widget cannot, since that domain is outside its sandbox, so the
+menu bar app polls the key and publishes the answer as `widgetsDimmed` in the
+shared file; `ClockPreferences.effectiveStyle` turns that into a white face and
+`WidgetDimming` holds the mapping. See `--dim-check` and G13.
+
+The raw values were measured rather than read off the pane's App Intents
+metadata, because the two disagree: the metadata orders the cases Automatically,
+Never, Always, while the key held 0 in the state whose widgets render greyscale
+and 1 for Never. Apple's own Weather widget was captured to settle it, and at 0
+there is no colour in it at all. So 1 is the only value proven to leave the face
+alone, an absent key is treated the same way, and everything else means dimmed.
 
 0.25 was settled by eye against the real dimmed desktop. The popover preview is
 never dimmed and shows the ghosts at any value, so it cannot be used to judge
 this.
+
+A dimmed face draws white whatever colour is picked, because greyscale maps a
+colour to its luminance and Imperator Blue's is 0.07: a blue face under Dim was
+a black rectangle with faint ghosts, which is what it looked like on the desktop
+before this existed. The skin is not overwritten, only what is drawn, so
+turning the dimming off brings the colour straight back.
 
 The ghost is a neutral grey, not the chosen colour dimmed down. A real LCD's
 dark bars do not take the tint of the lit ones, and a magenta face with magenta

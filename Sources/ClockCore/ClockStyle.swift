@@ -13,9 +13,11 @@ public struct ClockStyle: Equatable, Sendable {
     ///
     /// Measured against macOS itself. `Dim widgets on desktop` composites the
     /// whole widget at about 0.75 and in greyscale, from outside: a desktop
-    /// widget always renders in `.fullColor` and is never told, so nothing here
-    /// can react to it. A probe that drew the face red whenever the mode was
-    /// not `.fullColor` produced zero red pixels with Dim on.
+    /// widget always renders in `.fullColor` and is never told. A probe that
+    /// drew the face red whenever the mode was not `.fullColor` produced zero
+    /// red pixels with Dim on. The app reads the setting from
+    /// `com.apple.widgets` instead and publishes it, see `WidgetDimming`, but
+    /// nothing in this process can detect the composite itself.
     ///
     /// The compositor is not linear about it either. Sourced at 0.30 the ghost
     /// segments disappeared outright; 0.37 came back at 0.188 and 0.45 at

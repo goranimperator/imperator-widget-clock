@@ -26,6 +26,15 @@ final class ClockSettings: ObservableObject {
     @Published var hourFormat: ClockHourFormat {
         didSet { publishShared() }
     }
+    /// Whether macOS is dimming desktop widgets. `DimWatch` owns this; it is
+    /// not something the user sets, and it is republished only when it moves,
+    /// because the watcher reads it every few seconds.
+    @Published var widgetsDimmed: Bool {
+        didSet {
+            guard widgetsDimmed != oldValue else { return }
+            publishShared()
+        }
+    }
     /// True when the last write to the shared file failed.
     ///
     /// `SharedStore.save` has always returned a Bool and nothing ever read it.
@@ -40,16 +49,21 @@ final class ClockSettings: ObservableObject {
         customHex = shared.customHex
         neon = shared.neon
         hourFormat = shared.hourFormat
+        widgetsDimmed = shared.widgetsDimmed
     }
 
     var preferences: ClockPreferences {
         ClockPreferences(skin: skin,
                          customHex: customHex,
                          neon: neon,
-                         hourFormat: hourFormat)
+                         hourFormat: hourFormat,
+                         widgetsDimmed: widgetsDimmed)
     }
 
-    var style: ClockStyle { preferences.style }
+    /// What the preview draws, which is white while widgets are dimmed. The
+    /// preview and the widget have to agree, or the popover contradicts the
+    /// desktop right under it.
+    var style: ClockStyle { preferences.effectiveStyle }
 
     /// Write the shared file, then nudge WidgetKit. Without the nudge the widget
     /// would keep its old colour until its current timeline ran out.

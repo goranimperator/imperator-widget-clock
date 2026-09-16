@@ -8,15 +8,21 @@ public struct ClockPreferences: Codable, Equatable, Sendable {
     public var customHex: String
     public var neon: Bool
     public var hourFormat: ClockHourFormat
+    /// Whether macOS is dimming desktop widgets. System state, not a setting:
+    /// the app reads `WidgetDimming` and writes the answer here, because the
+    /// widget is sandboxed and cannot read another app's preferences.
+    public var widgetsDimmed: Bool
 
     public init(skin: ClockSkin = .white,
                 customHex: String = ClockSkin.defaultCustomHex,
                 neon: Bool = false,
-                hourFormat: ClockHourFormat = .system) {
+                hourFormat: ClockHourFormat = .system,
+                widgetsDimmed: Bool = false) {
         self.skin = skin
         self.customHex = customHex
         self.neon = neon
         self.hourFormat = hourFormat
+        self.widgetsDimmed = widgetsDimmed
     }
 
     /// Every field is decoded on its own and falls back on its own. A key that
@@ -35,10 +41,27 @@ public struct ClockPreferences: Codable, Equatable, Sendable {
         neon = (try? container.decodeIfPresent(Bool.self, forKey: .neon)) as? Bool ?? false
         hourFormat = (try? container.decodeIfPresent(ClockHourFormat.self, forKey: .hourFormat))
             as? ClockHourFormat ?? .system
+        widgetsDimmed = (try? container.decodeIfPresent(Bool.self, forKey: .widgetsDimmed))
+            as? Bool ?? false
     }
 
+    /// The colour that was picked.
     public var style: ClockStyle {
         ClockStyle(skin: skin, neon: neon, customHex: customHex)
+    }
+
+    /// The colour the face draws, which is white while macOS is dimming
+    /// widgets.
+    ///
+    /// Dimming is a greyscale composite applied from outside the widget, and
+    /// greyscale maps a colour to its luminance: Imperator Blue's is 0.07, so a
+    /// blue face came back as a black rectangle. Nothing the widget draws can
+    /// undo that, and the one skin that survives it is the one that is already
+    /// white. Both the widget and the popover preview go through here, so the
+    /// preview shows what the desktop will show.
+    public var effectiveStyle: ClockStyle {
+        guard widgetsDimmed else { return style }
+        return ClockStyle(skin: .white, neon: neon, customHex: customHex)
     }
 }
 

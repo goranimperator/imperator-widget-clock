@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var popover: NSPopover?
     private var settingsController: NSHostingController<SettingsView>?
     private var outsideClickMonitor: Any?
+    private var dimWatch: DimWatch?
 
     private let settings = ClockSettings.shared
 
@@ -31,6 +32,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // A new build of the app means a new build of the widget inside it, and
         // chronod will go on showing the old one until it is restarted.
         WidgetRefresh.afterInstall()
+        // The widget cannot see `Dim widgets on desktop`. This app can, so it
+        // reads it and writes the answer into the shared file.
+        let watch = DimWatch(settings: settings)
+        watch.start()
+        dimWatch = watch
     }
 
     private func setUpStatusItem() {

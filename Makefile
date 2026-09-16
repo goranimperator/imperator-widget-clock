@@ -120,6 +120,13 @@ gates: build
 			|| { echo "$$out"; exit 1; }; \
 		echo "$$out" | tail -1; \
 	else echo "G12 SKIPPED -- run make install first"; fi
+	# The installed copy, because half of this gate compares the live setting
+	# against what the running app published to the shared file.
+	@if [ -x "/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" ]; then \
+		out=$$("/Applications/$(APP_NAME).app/Contents/MacOS/$(BINARY_NAME)" --dim-check) \
+			|| { echo "$$out"; exit 1; }; \
+		echo "$$out" | tail -1; \
+	else echo "G13 SKIPPED -- run make install first"; fi
 
 clean:
 	rm -rf build dist

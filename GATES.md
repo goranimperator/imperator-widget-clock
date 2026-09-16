@@ -162,6 +162,30 @@ Run every runnable gate with `make gates`.
       a proof line, and touching the settings file so the comparison cannot run
       gives SKIPPED.
 
+## G13 A dimmed face draws white
+- [x] `Dim widgets on desktop` set to anything but Never makes the face render
+      white whatever colour is picked, and the colour comes back when it is off.
+      CHECK: "/Applications/Imperator WidgetClock.app/Contents/MacOS/ImperatorClock" --dim-check
+      EXPECT: G13_DIM_CHANNEL_OK
+      EVIDENCE: `com.apple.widgets/widgetAppearance = 0 -> dimmed=true`,
+      `shared file: skin=white widgetsDimmed=true`. The gate covers the mapping
+      (0 and 2 dimmed, 1 and an absent key not), the override itself (a blue
+      face with the dimming on draws white while `skin` stays `.blue`, and the
+      glow survives), and the live half: the value the app reads now against the
+      `widgetsDimmed` it published, which catches a watcher that stopped or a
+      write that failed. Verified in both directions on the desktop: with
+      `skin=blue` and the dimming on, the widget's own window capture came back
+      white, and it had been a black rectangle before this existed. The gate
+      also failed correctly against the previous build, which had no watcher:
+      `FAIL the shared file says widgetsDimmed=false while the setting says
+      true`.
+
+      The mapping was measured, not taken from `DesktopSettings.appex`'s App
+      Intents metadata, because the two disagree: the metadata orders the cases
+      Automatically, Never, Always, while the key held 0 in the state whose
+      widgets render in greyscale and 1 for Never. Apple's Weather widget
+      settled it: captured at 0 it has no colour in it.
+
 ## G8 Visual review against the references
 - [x] MANUAL: rendered faces match the reference image's proportions (1:2.4),
       segment weight (0.22 of digit width), even gaps, upright digits, and a

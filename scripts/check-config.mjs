@@ -58,13 +58,9 @@ expect(/ColorPanelController\.shared\.present/.test(settingsView),
 expect(!/TextField\(/.test(settingsView),
   'the custom colour is typed rather than picked');
 // `Dim widgets on desktop` greyscales the whole widget from outside and tells
-// nothing inside it, so the popover is the only place this can be said. It has
-// to name Classic White too: greyscale maps a colour to its luminance, and a
-// blue face comes back as black rather than as a dimmer blue.
+// the widget nothing, so the popover has to explain what happens to the colour.
 expect(/Dim widgets on desktop/.test(settingsView),
   'the popover no longer explains what Dim widgets on desktop does to the colour');
-expect(/Use Classic White while Dim is on\./.test(settingsView),
-  'the popover no longer recommends Classic White while Dim is on');
 const appDelegateSource = read('Sources/ImperatorClock/AppDelegate.swift');
 // chronod serves the extension and the snapshot it drew from before the
 // install, so without this the widget on the desktop shows the previous build
@@ -72,6 +68,27 @@ const appDelegateSource = read('Sources/ImperatorClock/AppDelegate.swift');
 // so no other gate sees it.
 expect(/WidgetRefresh\.afterInstall\(\)/.test(appDelegateSource),
   'the app does not refresh the widget after an install, so chronod keeps the old build');
+// The dimming channel: the app reads the setting the widget cannot see, and the
+// face draws white while it is on. Three separate things can break here, and
+// only the mapping is covered by --dim-check's pure half.
+const dimSource = read('Sources/ClockCore/WidgetDimming.swift');
+expect(/com\.apple\.widgets/.test(dimSource) && /widgetAppearance/.test(dimSource),
+  'WidgetDimming no longer reads com.apple.widgets/widgetAppearance');
+expect(/var widgetsDimmed: Bool/.test(sharedSource),
+  'the shared file no longer carries widgetsDimmed, so the widget cannot be told');
+expect(/effectiveStyle/.test(sharedSource),
+  'ClockPreferences has no effectiveStyle, so a dimmed face draws the picked colour');
+const widgetSource = read('Sources/ClockWidget/ClockWidget.swift');
+expect(/preferences\.effectiveStyle/.test(widgetSource),
+  'the widget draws style rather than effectiveStyle, so a dimmed blue face is black again');
+expect(/DimWatch\(settings: settings\)/.test(appDelegateSource),
+  'the app does not watch the dimming setting, so widgetsDimmed is never published');
+// The popover has to describe the behaviour rather than ask the user to work
+// around it, which is what it did while this was thought impossible.
+expect(/renders white while that is on/.test(settingsView),
+  'the popover no longer says the face renders white while widgets are dimmed');
+expect(!/Use Classic White while Dim is on/.test(settingsView),
+  'the popover still tells the user to pick white by hand');
 const refreshSource = read('Sources/ImperatorClock/WidgetRefresh.swift');
 expect(/killall/.test(refreshSource) && /chronod/.test(refreshSource),
   'WidgetRefresh no longer restarts chronod, and a timeline reload alone does not clear its snapshot');
@@ -134,7 +151,7 @@ expect(/WidgetCenter\.shared\.reloadAllTimelines\(\)/.test(appSettings),
 const widget = read('Sources/ClockWidget/ClockWidget.swift');
 expect(/SharedStore\.load\(\)/.test(widget),
   'the widget does not read the shared settings');
-expect(/style: entry\.style/.test(widget) && /preferences\.style/.test(widget),
+expect(/style: entry\.style/.test(widget) && /preferences\.effectiveStyle/.test(widget),
   'the widget does not apply the shared style');
 expect(/supportedFamilies\(\[\.systemMedium\]\)/.test(widget),
   'the widget does not declare the medium family');

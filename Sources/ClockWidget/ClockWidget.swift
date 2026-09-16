@@ -17,7 +17,9 @@ struct ClockEntry: TimelineEntry {
     let date: Date
     let preferences: ClockPreferences
 
-    var style: ClockStyle { preferences.style }
+    /// `effectiveStyle`, not `style`: white wins while macOS is dimming
+    /// widgets, and the app is the one that can see that.
+    var style: ClockStyle { preferences.effectiveStyle }
 }
 
 struct ClockProvider: TimelineProvider {
@@ -64,9 +66,11 @@ struct ClockProvider: TimelineProvider {
     }
 }
 
-/// Nothing here reacts to `Dim widgets on desktop`, and nothing can: a desktop
-/// widget always renders in `.fullColor` and the dimming is composited from
-/// outside. See the note on `ClockStyle.dimOpacity`.
+/// Nothing here reads `Dim widgets on desktop`, and nothing can: this process
+/// is sandboxed, a desktop widget always renders in `.fullColor`, and the
+/// dimming is composited from outside. The menu bar app reads the setting and
+/// writes it into the shared file, and `ClockEntry.style` is where that turns
+/// into a white face. See `WidgetDimming` and `ClockStyle.dimOpacity`.
 struct ClockWidgetView: View {
     var entry: ClockEntry
 

@@ -127,15 +127,15 @@ struct SettingsView: View {
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("The swatch with the pen opens the colour wheel. Pick any colour you like.")
-                    // Neither the app nor the widget is told when this is on:
-                    // a desktop widget always renders in .fullColor and macOS
-                    // composites the dimming over it. So this states it, and
-                    // names the skin that survives it: greyscale maps a colour
-                    // to its luminance, and blue's is 0.07, so a blue face
-                    // under Dim reads as black.
-                    Text("With Dim widgets on desktop turned on, macOS redraws the widget "
-                         + "in greyscale: a saturated colour comes back almost black. "
-                         + "Use Classic White while Dim is on.")
+                    // The widget is never told about the dimming, and cannot
+                    // read the setting either. This app can, so DimWatch reads
+                    // it and the face switches itself. Greyscale maps a colour
+                    // to its luminance and blue's is 0.07, so the alternative
+                    // was a black rectangle.
+                    Text("With Dim widgets on desktop turned on, macOS draws the widget "
+                         + "in greyscale, which turns a colour into its grey. The face "
+                         + "renders white while that is on and picks your colour back up "
+                         + "when you turn it off.")
                 }
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
