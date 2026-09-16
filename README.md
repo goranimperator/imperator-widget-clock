@@ -10,7 +10,8 @@
 </p>
 
 The face is drawn from real segment outlines rather than a font, so the unlit
-strokes stay visible the way the bars of an LCD clock never go fully dark. The digits stand upright: most LED clock faces lean, this one does
+strokes stay visible at 25 percent the way the bars of an LCD clock never go
+fully dark. The digits stand upright: most LED clock faces lean, this one does
 not.
 
 Five preset colours shared with the rest of the Imperator apps (Imperator Red,
@@ -18,7 +19,7 @@ Arcade Green, Neon Blue, Classic White, Electric Purple), a sixth swatch that
 opens the system colour wheel, and an optional neon glow ported from the `.neon`
 rule in imperator-deals.
 
-Requires macOS 14 or later, Apple silicon. Built and tested on macOS 26 only:
+Requires macOS 14 or later, Apple silicon. Built and tested on macOS 26 and 27:
 older versions are expected to work but have not been verified.
 
 Install at your own risk. The app is not notarized and carries no Apple
@@ -166,7 +167,9 @@ widget and the face fell back to its defaults, white with no glow.
 So the file sits where the unsandboxed app can always write, and the sandboxed
 widget reaches it through a sandbox temporary exception in its entitlements.
 That exception is a plain entitlement and is not checked against a team ID,
-which is the difference that makes it work where the App Group did not. That file is the whole of the app's state.
+which is the difference that makes it work where the App Group did not.
+
+That file is the whole of the app's state.
 
 The widget also writes a heartbeat next to it every time WidgetKit asks it for a
 timeline. It is the only evidence from outside that the extension really ran and
