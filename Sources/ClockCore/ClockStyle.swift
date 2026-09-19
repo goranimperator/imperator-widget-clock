@@ -100,9 +100,22 @@ public struct ClockStyle: Equatable, Sendable {
     /// The face background. Same near-black as imperator-retropong.
     public static let faceBackground = Color(.sRGB, red: 0.04, green: 0.04, blue: 0.04, opacity: 1)
 
-    /// macOS widget chrome, for the review renders: continuous rounded corners,
-    /// a hairline edge and a soft drop shadow.
-    public static let containerCornerRadius: CGFloat = 24
+    /// macOS widget chrome: continuous rounded corners, a hairline edge and a
+    /// soft drop shadow.
+    ///
+    /// 30 is what macOS 27 draws, measured rather than assumed. The medium
+    /// widget's own window was captured and the corner profile of the drawn
+    /// pixels fitted: 30.0 pt across 345 x 164 drawn points, near-circular. The
+    /// same measurement puts an NSPopover's content clip at 19.75 pt and a
+    /// titled window at 17.25, and both of those are the system's to draw, so
+    /// nothing here restates them. This constant is only for the shapes the app
+    /// draws itself.
+    ///
+    /// The popover preview uses it too, so the card behind the preview is the
+    /// shape the desktop shows. `--verify-corner` measures it in the rendered
+    /// pixels against the literal 30 rather than against this constant, the way
+    /// `--about-check` learned to.
+    public static let containerCornerRadius: CGFloat = 30
     public static let containerBorder = Color.white.opacity(0.14)
     public static let containerFill = Color(.sRGB, red: 0.06, green: 0.06, blue: 0.065, opacity: 0.94)
 }

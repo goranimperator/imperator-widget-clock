@@ -20,6 +20,12 @@ struct Bitmap {
         return (Int(pixels[i]), Int(pixels[i + 1]), Int(pixels[i + 2]))
     }
 
+    func alpha(x: Int, y: Int) -> Int {
+        let i = (y * width + x) * 4 + 3
+        guard i < pixels.count else { return 0 }
+        return Int(pixels[i])
+    }
+
     func luminance(x: Int, y: Int) -> Double {
         let c = rgb(x: x, y: y)
         return 0.2126 * Double(c.r) + 0.7152 * Double(c.g) + 0.0722 * Double(c.b)
@@ -29,9 +35,12 @@ struct Bitmap {
 enum RenderError: Error { case failed(String) }
 
 @MainActor
-func render<V: View>(_ view: V, size: CGSize) throws -> CGImage {
+func render<V: View>(_ view: V, size: CGSize, scale: CGFloat = 1) throws -> CGImage {
     let renderer = ImageRenderer(content: view.frame(width: size.width, height: size.height))
-    renderer.scale = 1
+    // Scale is a magnifier, not a resize: the view still lays out at `size`, so
+    // a 30 pt corner is drawn across 30 * scale pixels and can be measured to a
+    // fraction of a point. The pixel gates that read luminance leave it at 1.
+    renderer.scale = scale
     // Composite in gamma-encoded space so a 25 % fill measures as 25 % of the
     // lit value. Linear blending would report 54 %.
     renderer.colorMode = .nonLinear
@@ -102,7 +111,8 @@ struct WidgetMock: View {
             Color(white: 0.10)
             ClockPanelView(reading: reading, style: style, padding: 0.09)
                 .background(ClockStyle.faceBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: ClockStyle.containerCornerRadius,
+                                            style: .continuous))
                 .padding(14)
         }
     }
@@ -323,6 +333,108 @@ func commandVerifyGaps() throws {
     print("G10_GAPS_OK")
 }
 
+/// What macOS 27 draws a medium desktop widget with.
+///
+/// Measured, not taken from a header. The widget's own window was captured with
+/// `screencapture -l` and the bottom corner profile of the drawn pixels fitted
+/// against circles: 30.0 pt across 345 x 164 drawn points. The same method
+/// reads 19.75 pt for an NSPopover's content clip and 17.25 pt for a titled
+/// window, and the system draws both of those itself.
+let macOSWidgetCornerRadius: CGFloat = 30
+
+@MainActor
+func commandVerifyCorner() throws {
+    // The literal, not `ClockStyle.containerCornerRadius`. A check that reads
+    // the constant it is checking passes at any value, which is how a 320 pt
+    // About panel once passed a 300 pt gate.
+    guard ClockStyle.containerCornerRadius == macOSWidgetCornerRadius else {
+        throw RenderError.failed(String(format: "containerCornerRadius is %.2f, macOS 27 draws %.2f",
+                                        ClockStyle.containerCornerRadius, macOSWidgetCornerRadius))
+    }
+
+    // A medium widget is 360 x 180 points, magnified 4x so the profile is read
+    // in quarter points.
+    let scale: CGFloat = 4
+    let size = CGSize(width: 360, height: 180)
+    let image = try render(WidgetContainer { Color.white }, size: size, scale: scale)
+    let map = try bitmap(from: image)
+
+    // The plate is opaque (the fill is 0.94) and its drop shadow never gets
+    // past 0.45, so one threshold separates the two.
+    let solid = 200
+    var minX = map.width, maxX = -1, minY = map.height, maxY = -1
+    for y in 0..<map.height {
+        for x in 0..<map.width where map.alpha(x: x, y: y) > solid {
+            if x < minX { minX = x }
+            if x > maxX { maxX = x }
+            if y < minY { minY = y }
+            if y > maxY { maxY = y }
+        }
+    }
+    guard maxX > minX, maxY > minY else {
+        throw RenderError.failed("no plate in the render: nothing measured above alpha \(solid)")
+    }
+
+    // Bottom left, because the shadow is offset downwards and any halo it
+    // leaves is the same on both bottom corners: a fit that disagrees between
+    // them is measuring the shadow rather than the plate.
+    func profile(bottomLeft: Bool) -> [(dy: Double, inset: Double)] {
+        var samples: [(dy: Double, inset: Double)] = []
+        let span = Int(macOSWidgetCornerRadius * scale * 1.5)
+        for dy in 0..<span {
+            let y = maxY - dy
+            guard y >= minY else { break }
+            var inset = -1
+            if bottomLeft {
+                for x in minX...maxX where map.alpha(x: x, y: y) > solid { inset = x - minX; break }
+            } else {
+                for x in stride(from: maxX, through: minX, by: -1) where map.alpha(x: x, y: y) > solid {
+                    inset = maxX - x
+                    break
+                }
+            }
+            if inset >= 0 { samples.append((Double(dy), Double(inset))) }
+        }
+        return samples
+    }
+
+    /// Least squares against a circle, in points.
+    func fit(_ samples: [(dy: Double, inset: Double)]) -> (radius: Double, rms: Double) {
+        var best = (radius: 0.0, rms: Double.greatestFiniteMagnitude)
+        for quarter in 0...(Int(macOSWidgetCornerRadius) * 8) {
+            let radius = Double(quarter) / 4 * Double(scale)
+            var sum = 0.0
+            for sample in samples {
+                let expected = sample.dy >= radius
+                    ? 0
+                    : radius - (radius * radius - (radius - sample.dy) * (radius - sample.dy)).squareRoot()
+                sum += (expected - sample.inset) * (expected - sample.inset)
+            }
+            let rms = (sum / Double(samples.count)).squareRoot()
+            if rms < best.rms { best = (radius / Double(scale), rms) }
+        }
+        return best
+    }
+
+    let left = fit(profile(bottomLeft: true))
+    let right = fit(profile(bottomLeft: false))
+    print(String(format: "plate %.1f x %.1f pt  left=%.2f pt (rms %.2f px)  right=%.2f pt (rms %.2f px)",
+                 Double(maxX - minX + 1) / Double(scale), Double(maxY - minY + 1) / Double(scale),
+                 left.radius, left.rms, right.radius, right.rms))
+
+    for (name, measured) in [("bottom left", left), ("bottom right", right)] {
+        guard abs(measured.radius - Double(macOSWidgetCornerRadius)) <= 1.5 else {
+            throw RenderError.failed(String(format: "%@ corner measures %.2f pt, macOS 27 draws %.2f +/- 1.5",
+                                            name, measured.radius, macOSWidgetCornerRadius))
+        }
+        guard measured.rms <= 3.0 else {
+            throw RenderError.failed(String(format: "%@ corner is not a rounded corner: rms %.2f px off a circle",
+                                            name, measured.rms))
+        }
+    }
+    print("G14_CORNER_OK")
+}
+
 @main
 struct ClockPreviewTool {
     static func main() async {
@@ -334,13 +446,15 @@ struct ClockPreviewTool {
                     try commandVerifyDim()
                 case "--verify-gaps":
                     try commandVerifyGaps()
+                case "--verify-corner":
+                    try commandVerifyCorner()
                 case "--render", nil:
                     let path = arguments.count > 1 ? arguments[1] : "build/preview"
                     let count = try commandRender(into: URL(fileURLWithPath: path))
                     print("PREVIEW_OK \(count) -> \(path)")
                 default:
                     FileHandle.standardError.write(
-                        "usage: ClockPreview [--render <dir>|--verify|--verify-gaps]\n"
+                        "usage: ClockPreview [--render <dir>|--verify|--verify-gaps|--verify-corner]\n"
                             .data(using: .utf8)!
                     )
                     exit(2)

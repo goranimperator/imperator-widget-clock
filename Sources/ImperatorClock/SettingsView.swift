@@ -198,8 +198,14 @@ struct SettingsView: View {
         .padding(12)
         .frame(height: 92)
         .frame(maxWidth: .infinity)
+        // The card is the widget's own shape rather than a card of its own.
+        // macOS 27 rounds a desktop widget at 30 pt, measured off the real
+        // window, and a preview with tighter corners than the thing it previews
+        // misreports the shape the same way a preview in the wrong colour
+        // misreports the colour.
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: ClockStyle.containerCornerRadius,
+                             style: .continuous)
                 .fill(ClockStyle.faceBackground)
         )
     }

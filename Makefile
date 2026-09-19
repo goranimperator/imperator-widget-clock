@@ -36,7 +36,9 @@ app that holds its settings. Six colours including one you pick yourself, an \
 optional neon glow, and unlit strokes held at 25 percent so the face reads like \
 a real LCD. With Dim widgets on desktop turned on macOS draws every widget in \
 greyscale, which would turn a colour into its grey, so the face renders white \
-while that setting is on and picks the colour back up when it is off.
+while that setting is on and picks the colour back up when it is off. The \
+preview in the popover now carries the same 30 point corner radius macOS 27 \
+draws around a desktop widget, so it shows the shape the desktop shows.
 GATEKEEPER = Signed with a self-signed certificate and not notarized, so \
 Gatekeeper blocks the first launch: right-click the app and choose Open, or run \
 \`xattr -dr com.apple.quarantine \"/Applications/$(APP_NAME).app\"\`.
@@ -98,6 +100,8 @@ gates: build
 	@node scripts/check-upright.mjs
 	@./.build/release/ClockPreview --verify
 	@./.build/release/ClockPreview --verify-gaps | tail -1; \
+		test $${PIPESTATUS[0]:-$$?} -eq 0
+	@./.build/release/ClockPreview --verify-corner | tail -1; \
 		test $${PIPESTATUS[0]:-$$?} -eq 0
 	@codesign --verify --deep --strict "$(BUNDLE)" \
 		&& codesign --verify --strict "$(APPEX)" && echo G5_SIGN_OK

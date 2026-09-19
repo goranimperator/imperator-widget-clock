@@ -211,6 +211,22 @@ expect(/<key>LSUIElement<\/key>\s*<true\/>/.test(appPlist),
 expect(/setActivationPolicy\(\.accessory\)/.test(read('Sources/ImperatorClock/AppMain.swift')),
   'the app no longer sets .accessory, so it would show in the app switcher');
 
+// The cards the app draws in the widget's shape carry the radius macOS 27
+// draws, and they carry it from one constant. Before this there were three
+// numbers for one shape: 24 in ClockStyle, 20 in the review render and 10 in
+// the popover preview, so the preview showed a tighter corner than the widget
+// it was previewing. The measured value lives in G14; this only checks that
+// nothing has gone back to a literal of its own.
+expect(/containerCornerRadius: CGFloat = 30/.test(styleSource),
+  'ClockStyle.containerCornerRadius is not 30, which is what macOS 27 draws');
+expect(/RoundedRectangle\(cornerRadius: ClockStyle\.containerCornerRadius/.test(settingsView),
+  'the popover preview no longer uses ClockStyle.containerCornerRadius');
+expect(/cornerRadius: ClockStyle\.containerCornerRadius/
+  .test(read('Sources/ClockPreview/main.swift')),
+  'the review render no longer uses ClockStyle.containerCornerRadius');
+expect(/macOSWidgetCornerRadius: CGFloat = 30/.test(read('Sources/ClockPreview/main.swift')),
+  'the corner gate no longer measures against the literal 30');
+
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL ${failure}`);
   process.exit(1);

@@ -1,7 +1,7 @@
 # GATES: Imperator WidgetClock
 
 CONTRACT: A macOS WidgetKit medium widget showing a seven-segment HH:MM clock:
-one gallery card, unlit segments visible at 5 %, upright digits with even
+one gallery card, unlit segments visible at 25 %, upright digits with even
 spacing. Everything it looks like is set in a menu bar app whose popover follows
 the Imperator apps brandbook: five preset colours plus a colour picker, a neon
 toggle and an hour format. Nothing animates, because nothing can.
@@ -105,7 +105,7 @@ Run every runnable gate with `make gates`.
       it on both attempts at a clean shot with the icon in place. The icon is
       measured, not seen.
 
-## G3 Unlit segments render at 5 %
+## G3 Unlit segments render at 25 %
 - [x] Measured luminance of an unlit segment is 0.25 of a lit one, +/- 0.015.
       CHECK: ./.build/release/ClockPreview --verify
       EXPECT: G3_DIM_OK
@@ -133,6 +133,40 @@ Run every runnable gate with `make gates`.
       the middle instead of by `miter`, which is how the face shipped, the four
       middle junctions measure `64.00 65.00 66.50 68.00` against `20.00` to
       `21.00` at the corners, and the gate fails at `spread 111.0%`.
+
+## G14 The cards drawn in the widget's shape carry the radius macOS 27 draws
+- [x] `ClockStyle.containerCornerRadius` is 30, the popover preview and the
+      review render both take it from there, and the plate that comes out
+      measures 30 pt at both bottom corners.
+      CHECK: ./.build/release/ClockPreview --verify-corner
+      EXPECT: G14_CORNER_OK
+      EVIDENCE: `plate 360.0 x 180.0 pt  left=30.25 pt (rms 1.72 px)
+      right=30.25 pt (rms 1.73 px)`. The 0.25 is the continuous corner read by a
+      circular fit, not drift.
+
+      30 was measured on macOS 27.0 (26A428) rather than taken from a header.
+      The medium widget's own window was captured with `screencapture -l` and
+      the bottom corner profile of the drawn pixels fitted: 30.0 pt across
+      345 x 164 drawn points, near-circular. The same method reads 19.75 pt for
+      an NSPopover's content clip and 17.25 pt for a titled window, and the
+      system draws both of those itself, so the app must not restate them. A
+      probe confirmed the popover clips its content: an NSPopover holding an
+      opaque magenta view came back with the magenta rounded off at 19.75 pt,
+      while `NSPopoverFrame.layer.cornerRadius` reads 0, so reading the layer
+      would have said square.
+
+      Before this the same shape carried three numbers: 24 in `ClockStyle`, 20
+      in the review render and 10 in the popover preview, so the preview showed
+      a tighter corner than the widget it was previewing. All three now come
+      from the one constant, and G2 fails if a literal comes back.
+
+      The gate compares against the literal 30 rather than against the constant
+      it is checking, which is the lesson G12 learned when a 320 pt About panel
+      passed a 300 pt gate. Verified in both directions: with the constant set
+      to 20 it fails `containerCornerRadius is 20.00, macOS 27 draws 30.00`, and
+      with the constant left at 30 but the drawing taking `- 10` it fails on the
+      pixels, `bottom left corner measures 20.00 pt, macOS 27 draws 30.00
+      +/- 1.5`.
 
 ## G4 Digits are upright, not italic
 - [x] No shear, skew, oblique or rotation reaches the glyph geometry.

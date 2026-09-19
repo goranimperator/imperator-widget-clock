@@ -319,6 +319,36 @@ showing the raw colour would contradict the preview directly above it.
 restoration otherwise puts a colour panel back on screen the moment the first
 colour well exists.
 
+## Corner radii: measure them, and only draw the one that is ours
+
+macOS 27 (26A428), measured off the real pixels rather than read out of a
+header or a layer:
+
+| shape | radius | who draws it |
+| --- | --- | --- |
+| medium desktop widget | 30.00 pt | macOS |
+| NSPopover content clip | 19.75 pt | macOS |
+| titled window, NSPanel included | 17.25 pt | macOS |
+
+Method: capture the window itself with `screencapture -x -o -l <id>`, walk the
+bottom-left corner of the drawn pixels row by row, and fit the inset profile
+against circles. The bottom corners, not the top: a popover's arrow sits on the
+top edge and contaminates the profile there.
+
+Reading the layer would have said something else. `NSPopoverFrame` and
+`NSThemeFrame` both report `cornerRadius` 0, and the rounding is a mask, so a
+probe holding an opaque magenta view still came back with magenta rounded off at
+19.75 pt. The popover and the About panel therefore need no radius of their own,
+and must not be given one.
+
+The one radius the app owns is `ClockStyle.containerCornerRadius`, the widget's
+shape, and it is 30 because that is what macOS draws around a medium widget. The
+popover preview and the review render both take it from there. They did not
+before: the same shape carried 24, 20 and 10 in three places, so the preview in
+the popover had tighter corners than the widget it was previewing. `G14` and
+`--verify-corner` measure the rendered plate against the literal 30, and G2
+fails if any of the three goes back to a literal of its own.
+
 ## The menu bar icon
 
 `StatusItemIcon` draws the icon rather than taking `systemSymbolName: "clock"`.
