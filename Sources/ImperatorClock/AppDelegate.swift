@@ -5,9 +5,7 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
-    private var popover: NSPopover?
-    private var settingsController: NSHostingController<SettingsView>?
-    private var outsideClickMonitor: Any?
+    private var panel: MenuBarPanel?
     private var dimWatch: DimWatch?
 
     private let settings = ClockSettings.shared
@@ -47,93 +45,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.action = #selector(togglePopover)
         statusItem = item
 
-        let popover = NSPopover()
-        // Not `.transient`, which is what the brandbook asks for, and the reason
-        // is the colour picker. NSColorPanel is a window of its own, so opening
-        // it steals key from the popover and a transient popover closes on the
-        // spot: the panel is left pointing at a dead SwiftUI binding and every
-        // colour picked is dropped. `.applicationDefined` plus the global mouse
-        // monitor below keeps the click-outside dismissal the brandbook wants
-        // while the colour panel is allowed to stay up.
-        popover.behavior = .applicationDefined
-        popover.animates = true
-        let controller = NSHostingController(
-            rootView: SettingsView(settings: settings) { [weak self] in
-                self?.popover?.performClose(nil)
-            }
+        // A MenuBarPanel rather than an NSPopover. macOS 27 draws its own menu
+        // bar panels as plain rounded rectangles: 17.50 pt corner, no arrow and
+        // no animation, measured off Control Centre's Wi-Fi panel. An NSPopover
+        // draws none of that and exposes none of it for adjustment, and which
+        // of its two frames it draws depends on the binary's SDK stamp. See
+        // MenuBarPanel.
+        let panel = MenuBarPanel(
+            content: SettingsView(settings: settings) { [weak self] in
+                self?.panel?.close()
+            },
+            width: SettingsView.width
         )
-        // The popover is positioned from its contentSize at the moment it is
-        // shown. Left to grow afterwards it expands around the anchor instead of
-        // hanging below it, and the header ends up above the top of the screen.
-        controller.sizingOptions = [.preferredContentSize]
-        popover.contentViewController = controller
-        popover.contentSize = controller.view.fittingSize
-        settingsController = controller
-        popover.delegate = self
-        self.popover = popover
+        // The colour picker is a window of its own. Every click in it is a
+        // click outside this panel, and closing on it would leave the wheel
+        // pointing at a dead SwiftUI binding and drop the colour that was just
+        // picked. This is what `.applicationDefined` plus a hand-written mouse
+        // monitor used to buy.
+        panel.shouldCloseOnOutsideClick = { !NSColorPanel.shared.isVisible }
+        // The colour panel is driven from inside this one, so once this is gone
+        // the wheel would stand there changing nothing.
+        panel.onClose = { ColorPanelController.shared.dismiss() }
+        self.panel = panel
     }
 
     @objc private func togglePopover() {
-        guard let popover, let button = statusItem?.button else { return }
-        if popover.isShown {
-            popover.performClose(nil)
+        guard let panel, let button = statusItem?.button else { return }
+        if panel.isShown {
+            panel.close()
         } else {
-            // The panel is closed with the popover, so a visible one here is a
-            // leftover from restoration rather than something the user opened.
+            // The wheel is closed with the panel, so a visible one here is a
+            // leftover from window restoration rather than something the user
+            // opened.
             NSColorPanel.shared.orderOut(nil)
-            if let size = settingsController?.view.fittingSize, size.height > 0 {
-                popover.contentSize = size
-            }
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
-            startOutsideClickMonitor()
+            panel.show(from: button)
+            // The panel hides itself when the app deactivates, and an
+            // .accessory app is inactive until something activates it. Without
+            // this the panel is created, sized and ordered front, and then
+            // hidden before it is ever drawn: the window exists with
+            // `onscreen=false` and nothing appears under the icon.
+            NSApp.activate(ignoringOtherApps: true)
+            panel.makeKey()
         }
-    }
-
-    /// Restores the click-outside dismissal that `.transient` would have given,
-    /// without its habit of closing on the colour panel.
-    ///
-    /// A global monitor is meant to see only events in *other* applications, but
-    /// the first click into an inactive accessory app's popover reaches it too,
-    /// which closed the popover before the click landed on the control under the
-    /// cursor. So "outside" is decided by the pointer, not by the monitor.
-    private func startOutsideClickMonitor() {
-        guard outsideClickMonitor == nil else { return }
-        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.leftMouseDown, .rightMouseDown]
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, let popover = self.popover, popover.isShown else { return }
-                guard !NSColorPanel.shared.isVisible else { return }
-                let pointer = NSEvent.mouseLocation
-                if let window = popover.contentViewController?.view.window,
-                   window.frame.contains(pointer) {
-                    return
-                }
-                if let button = self.statusItem?.button, let window = button.window,
-                   window.convertToScreen(button.frame).contains(pointer) {
-                    return
-                }
-                popover.performClose(nil)
-            }
-        }
-    }
-
-    private func stopOutsideClickMonitor() {
-        if let outsideClickMonitor {
-            NSEvent.removeMonitor(outsideClickMonitor)
-        }
-        outsideClickMonitor = nil
-    }
-
-}
-
-extension AppDelegate: NSPopoverDelegate {
-    /// The colour panel is driven by a SwiftUI ColorPicker that lives inside the
-    /// popover. Once the popover is gone the panel would keep standing there
-    /// changing nothing, so it goes with it.
-    func popoverDidClose(_ notification: Notification) {
-        stopOutsideClickMonitor()
-        ColorPanelController.shared.dismiss()
     }
 }

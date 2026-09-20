@@ -116,6 +116,26 @@ public struct ClockStyle: Equatable, Sendable {
     /// pixels against the literal 30 rather than against this constant, the way
     /// `--about-check` learned to.
     public static let containerCornerRadius: CGFloat = 30
+
+    /// The panel's own corner: 17.5 pt.
+    ///
+    /// The preview card takes this rather than the widget's 30, because the
+    /// card sits directly inside the panel's corner and the two are read
+    /// against each other. The widget on the desktop has nothing around it, so
+    /// it keeps 30.
+    ///
+    /// 17.5 is what macOS 27 draws around its own menu bar panels, measured off
+    /// Control Centre's Wi-Fi panel, and what `MenuBarPanel` draws here. A
+    /// plain window measures 17.25 by the same method. This said 19.75 for one
+    /// build, the figure an `NSPopover` clips at, which is the control this app
+    /// used before the panel; the card was then visibly rounder than the panel
+    /// holding it.
+    ///
+    /// `MenuBarPanel.cornerRadius` is 18.25 rather than this, because an
+    /// `NSVisualEffectView` blends its edge and draws about 0.75 pt tighter
+    /// than the radius it is given. SwiftUI draws what it is told, so the card
+    /// carries the drawn number.
+    public static let panelCornerRadius: CGFloat = 17.5
     public static let containerBorder = Color.white.opacity(0.14)
     public static let containerFill = Color(.sRGB, red: 0.06, green: 0.06, blue: 0.065, opacity: 0.94)
 }

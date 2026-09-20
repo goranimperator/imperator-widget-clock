@@ -124,12 +124,24 @@ for (const path of ['Sources/ImperatorClock/SettingsView.swift',
 const appDelegate = appDelegateSource;
 expect(/AppleAccentColor/.test(appDelegate),
   'the app never pins its accent colour, so system blue can leak in');
-// A transient popover closes the moment NSColorPanel takes key, which drops
-// every colour the user picks.
-expect(/popover\.behavior = \.applicationDefined/.test(appDelegate),
-  'the popover is transient, so opening the colour panel would dismiss it');
-expect(/addGlobalMonitorForEvents/.test(appDelegate),
-  'nothing closes the popover on a click outside');
+// The panel is drawn rather than taken from NSPopover, because macOS 27 draws
+// its own menu bar panels at a 17.5 pt corner with no arrow and no animation,
+// and an NSPopover matches none of that. See MenuBarPanel.
+const panelSource = read('Sources/ImperatorClock/MenuBarPanel.swift');
+expect(/MenuBarPanel\(/.test(appDelegate),
+  'the app no longer opens a MenuBarPanel, so its panel is not the system shape');
+expect(/cornerRadius: CGFloat = 18\.25/.test(panelSource),
+  'MenuBarPanel.cornerRadius is not 18.25, which is what draws the measured 17.50');
+expect(!/arrowHeight|arrowWidth/.test(panelSource),
+  'the panel has grown an arrow back; macOS 27 menu bar panels have none');
+expect(!/NSAnimationContext|animator\(\)/.test(panelSource),
+  'the panel animates; macOS 27 puts its own menu bar panels up instantly');
+// The colour wheel is a window of its own, so every click in it is a click
+// outside the panel. Closing on those drops the colour that was just picked.
+expect(/shouldCloseOnOutsideClick = \{ !NSColorPanel\.shared\.isVisible \}/.test(appDelegate),
+  'the panel would close on a click in the colour wheel, dropping the colour');
+expect(/addGlobalMonitorForEvents/.test(panelSource),
+  'nothing closes the panel on a click outside');
 
 // A widget is a still frame: WidgetKit collapses sub-minute timeline entries,
 // so a pulse or a blinking colon can only ever be a setting that does nothing.
@@ -211,16 +223,29 @@ expect(/<key>LSUIElement<\/key>\s*<true\/>/.test(appPlist),
 expect(/setActivationPolicy\(\.accessory\)/.test(read('Sources/ImperatorClock/AppMain.swift')),
   'the app no longer sets .accessory, so it would show in the app switcher');
 
-// The cards the app draws in the widget's shape carry the radius macOS 27
-// draws, and they carry it from one constant. Before this there were three
-// numbers for one shape: 24 in ClockStyle, 20 in the review render and 10 in
-// the popover preview, so the preview showed a tighter corner than the widget
-// it was previewing. The measured value lives in G14; this only checks that
-// nothing has gone back to a literal of its own.
+// Every rounded shape the app draws in a system shape takes its radius from
+// one of two measured constants, never from a literal of its own. There were
+// three numbers for one shape before this: 24 in ClockStyle, 20 in the review
+// render and 10 in the popover preview. The measured values live in G14; this
+// only checks that nothing has gone back to a literal.
 expect(/containerCornerRadius: CGFloat = 30/.test(styleSource),
-  'ClockStyle.containerCornerRadius is not 30, which is what macOS 27 draws');
-expect(/RoundedRectangle\(cornerRadius: ClockStyle\.containerCornerRadius/.test(settingsView),
-  'the popover preview no longer uses ClockStyle.containerCornerRadius');
+  'ClockStyle.containerCornerRadius is not 30, which is what macOS 27 draws round a widget');
+expect(/panelCornerRadius: CGFloat = 17\.5/.test(styleSource),
+  'ClockStyle.panelCornerRadius is not 17.5, which is the corner the panel draws');
+// The radius above is only right while the binary carries the real SDK stamp,
+// so the flag that produces it is part of the same claim. G15 checks the built
+// binary; this catches the Makefile losing the flag.
+expect(/PLATFORM_STAMP/.test(read('Makefile')) && /platform_version/.test(read('Makefile')),
+  'the Makefile no longer stamps the real SDK, so macOS draws the previous generation of popover');
+// And the extension has to keep the old one: on the new stamp WidgetKit drew
+// every segment the same flat grey, which erases the unlit ghosts the face is
+// made of. G15 checks the built binaries; this catches the recipe losing it.
+expect(/vtool -set-build-version macos \$\(MIN_MACOS\)/.test(read('Makefile')),
+  'the widget appex is no longer stamped back to MIN_MACOS, so the face loses its ghosts');
+// The card sits inside the popover's own corner and is read against it, so it
+// takes the popover's radius rather than the widget's.
+expect(/RoundedRectangle\(cornerRadius: ClockStyle\.panelCornerRadius/.test(settingsView),
+  'the preview card no longer uses ClockStyle.panelCornerRadius');
 expect(/cornerRadius: ClockStyle\.containerCornerRadius/
   .test(read('Sources/ClockPreview/main.swift')),
   'the review render no longer uses ClockStyle.containerCornerRadius');

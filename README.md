@@ -65,7 +65,7 @@ xattr -dr com.apple.quarantine "/Applications/Imperator WidgetClock.app"
 
 ## Settings
 
-Everything lives in the menu bar popover, and everything applies to the widget:
+Everything lives in the menu bar panel, and everything applies to the widget:
 
 | Setting | What it does |
 |---|---|
@@ -84,11 +84,19 @@ The footer carries the login toggle on the left and About and Quit on the
 right. About opens a small panel with the icon, the version the build actually
 carries, the copyright and a link to goranimperator.com.
 
-The popover follows the
+The panel follows the
 [Imperator apps brandbook](https://github.com/goranimperator/imperator-apps-brandbook):
 header, divider, content, divider, footer, 340pt wide, forced dark, brand red
 instead of the system accent. The About panel follows section 10 of the same
 book, and `--about-check` measures it rather than trusting it.
+
+The panel itself is drawn rather than taken from `NSPopover`, because neither
+frame an `NSPopover` draws on macOS 27 is the one the system puts under a menu
+bar item: measured on the real windows, Control Centre's Wi-Fi panel rounds at
+17.5 pt, while an `NSPopover` rounds at 26.25 or at 9.5 depending on the SDK
+stamp in the binary. `MenuBarPanel` is the same 17.5 pt surface every Imperator
+menu bar app draws, with no arrow and no animation, which is also what macOS
+does.
 
 ## Why the colon does not blink
 
@@ -116,10 +124,10 @@ targets:
 - **`ClockCore`** is the whole face: segment geometry, the lit and unlit paths,
   the colour and glow rules, and the app/widget settings contract.
 - **`ImperatorClock`** is the menu bar app. A status item and a settings
-  popover, nothing more. Two separate things keep it off the Dock and out of the
+  panel, nothing more. Two separate things keep it off the Dock and out of the
   app switcher, and it needs both: `LSUIElement` in `Info.plist`, because
   LaunchServices decides on the Dock tile before the process runs, and
-  `setActivationPolicy(.accessory)` for the switcher and for the popover to
+  `setActivationPolicy(.accessory)` for the switcher and for the panel to
   behave as an accessory window. The menu bar icon is drawn rather than taken
   from SF Symbols, and its outline is the gamepad body from imperator-free-games
   so the two apps are the same size side by side.

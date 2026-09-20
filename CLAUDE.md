@@ -279,17 +279,21 @@ Follow the `imperator-release` skill. Audit first, tag last, never without
 Goran's explicit word in that message. `release` bumps **both** `Info.plist`
 files; the appex version has to move with the app.
 
-## The settings popover
+## The settings panel
 
 Built to the Imperator apps brandbook (`~/Code/imperator/imperator-apps-brandbook`):
 header, divider, scrolling content, divider, footer; 340pt wide; forced dark;
 every toggle a brand-red `.switch` at 0.55 scale in a 36x20 frame. Three details
 had to deviate or be built by hand:
 
-1. **The popover is `.applicationDefined`, not `.transient`.** NSColorPanel is a
-   window of its own, and a transient popover closes the moment the panel takes
-   key, which drops every colour picked. A global mouse monitor restores the
-   click-outside dismissal, and it stands down while the colour panel is up.
+1. **The panel is drawn, not an `NSPopover`.** `MenuBarPanel` is a borderless
+   `NSPanel` with an `NSVisualEffectView` on the `.popover` material, rounded at
+   17.5 pt with no arrow and no animation, which is what macOS 27 puts under a
+   menu bar item. Every Imperator menu bar app draws the same one. It also owns
+   the click-outside dismissal, and `shouldCloseOnOutsideClick` is how this app
+   keeps it from closing on the colour wheel: `NSColorPanel` is a window of its
+   own, so every click in it is a click outside the panel, and closing there left
+   the wheel pointing at a dead binding and dropped the colour.
 2. **The colour picker is `NSColorPanel` driven directly**, not SwiftUI's
    `ColorPicker`. Its colour well draws a pill that does not match the swatch
    row, and inside an `.accessory` app's popover clicking it focuses the well
@@ -319,35 +323,60 @@ showing the raw colour would contradict the preview directly above it.
 restoration otherwise puts a colour panel back on screen the moment the first
 colour well exists.
 
-## Corner radii: measure them, and only draw the one that is ours
+## Corner radii: measure them, and draw the one that is ours
 
-macOS 27 (26A428), measured off the real pixels rather than read out of a
-header or a layer:
+macOS 27 (26A428), measured off the real pixels rather than read out of a header
+or a layer. Every figure is a circular fit on the bottom corner of a captured
+window, and the bottom, not the top, because an `NSPopover` puts an arrow on the
+top edge and it contaminates the profile.
 
 | shape | radius | who draws it |
 | --- | --- | --- |
 | medium desktop widget | 30.00 pt | macOS |
-| NSPopover content clip | 19.75 pt | macOS |
-| titled window, NSPanel included | 17.25 pt | macOS |
+| Control Centre's Wi-Fi panel, the menu bar's own | 17.50 pt | macOS |
+| titled window, Notes and the About panel alike | 17.25 pt | macOS |
+| `NSPopover`, binary stamped `sdk 27.0` | 26.25 pt outer, 19.75 clip | macOS |
+| `NSPopover`, binary stamped `sdk 14.0` | 9.50 pt | macOS |
 
-Method: capture the window itself with `screencapture -x -o -l <id>`, walk the
-bottom-left corner of the drawn pixels row by row, and fit the inset profile
-against circles. The bottom corners, not the top: a popover's arrow sits on the
-top edge and contaminates the profile there.
+The two popover rows are why this app no longer uses one. macOS 27 draws two
+generations of popover frame and picks between them on the binary's `sdk` stamp,
+and neither generation is the panel macOS itself puts under a menu bar item: one
+is half again too round, the other half too tight. `NSPopover` exposes no radius,
+so matching the system meant drawing the surface, which is what `MenuBarPanel`
+does. See the settings panel section below.
 
-Reading the layer would have said something else. `NSPopoverFrame` and
-`NSThemeFrame` both report `cornerRadius` 0, and the rounding is a mask, so a
-probe holding an opaque magenta view still came back with magenta rounded off at
-19.75 pt. The popover and the About panel therefore need no radius of their own,
-and must not be given one.
+That stamp is also the easiest thing here to measure wrong. A probe built today
+carries `sdk 27.0` and answers for a frame a binary stamped `sdk 14.0` never
+gets; the same probe re-stamped with
+`vtool -set-build-version macos 14.0 14.0 -replace` and re-signed measured 19.75
+before and 9.50 after, with nothing else changed. Check the stamp before trusting
+any popover measurement:
 
-The one radius the app owns is `ClockStyle.containerCornerRadius`, the widget's
-shape, and it is 30 because that is what macOS draws around a medium widget. The
-popover preview and the review render both take it from there. They did not
-before: the same shape carried 24, 20 and 10 in three places, so the preview in
-the popover had tighter corners than the widget it was previewing. `G14` and
-`--verify-corner` measure the rendered plate against the literal 30, and G2
-fails if any of the three goes back to a literal of its own.
+```bash
+vtool -show-build-version "/Applications/Imperator WidgetClock.app/Contents/MacOS/ImperatorClock"
+```
+
+This app shipped stamped `sdk 14.0` until the Makefile started stamping the real
+SDK, because SwiftPM takes that field from `platforms:` rather than from the SDK
+it compiled against. It was drawing macOS 14 era controls on macOS 27: the old
+popover frame, and the narrow switch with a round knob instead of today's
+capsule. The minimum still says macOS 14, so nothing about where the app installs
+changed. See `PLATFORM_STAMP` in the Makefile and G15.
+
+Two constants carry this. `ClockStyle.containerCornerRadius` is 30, the widget's
+own shape, used by the review render: the widget has nothing around it, so it
+answers to macOS and nothing else. `ClockStyle.panelCornerRadius` is 17.5, used
+by the preview card in the panel, because the card sits inside the panel's corner
+and the two are read against each other. `MenuBarPanel.cornerRadius` is 18.25
+rather than 17.5, because an `NSVisualEffectView` blends its edge and draws about
+0.75 pt tighter than the radius it is given: at 17.5 the panel measured 16.75, at
+18.25 it measures 17.50, which is the Wi-Fi panel exactly.
+
+Before this the widget's shape carried three numbers: 24 in `ClockStyle`, 20 in
+the review render and 10 in the popover preview. `G14` and `--verify-corner`
+measure both rendered shapes against the literals, and G2 fails if either
+constant drifts, if a literal comes back in a view, or if the Makefile loses the
+SDK stamp.
 
 ## The menu bar icon
 

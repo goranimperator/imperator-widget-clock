@@ -333,34 +333,40 @@ func commandVerifyGaps() throws {
     print("G10_GAPS_OK")
 }
 
-/// What macOS 27 draws a medium desktop widget with.
+/// The two radii macOS 27 draws that the app has to agree with.
 ///
-/// Measured, not taken from a header. The widget's own window was captured with
+/// Measured, not taken from a header. Each window was captured with
 /// `screencapture -l` and the bottom corner profile of the drawn pixels fitted
-/// against circles: 30.0 pt across 345 x 164 drawn points. The same method
-/// reads 19.75 pt for an NSPopover's content clip and 17.25 pt for a titled
-/// window, and the system draws both of those itself.
+/// against circles: 30.0 pt around a medium desktop widget, across 345 x 164
+/// drawn points, and 19.75 pt where macOS 27's own popover clips its content. A
+/// titled window reads 17.25 pt by the same method. The bottom corners, because
+/// a popover's arrow sits on the top edge.
+///
+/// The popover figure is the one for a binary stamped with the real SDK, which
+/// the Makefile now does and G15 checks. The same probe re-stamped `sdk 14.0`
+/// gets the previous generation of frame and clips at 9.5 instead, so the
+/// stamp, not the OS, decides which frame a popover gets.
 let macOSWidgetCornerRadius: CGFloat = 30
+let macOSPanelCornerRadius: CGFloat = 17.5
 
+/// The corner radius of a rendered shape, read back out of its own pixels.
+///
+/// Both bottom corners are returned rather than one: the container's drop
+/// shadow is offset downwards, so a fit that disagrees between them is
+/// measuring the shadow instead of the plate.
 @MainActor
-func commandVerifyCorner() throws {
-    // The literal, not `ClockStyle.containerCornerRadius`. A check that reads
-    // the constant it is checking passes at any value, which is how a 320 pt
-    // About panel once passed a 300 pt gate.
-    guard ClockStyle.containerCornerRadius == macOSWidgetCornerRadius else {
-        throw RenderError.failed(String(format: "containerCornerRadius is %.2f, macOS 27 draws %.2f",
-                                        ClockStyle.containerCornerRadius, macOSWidgetCornerRadius))
-    }
-
-    // A medium widget is 360 x 180 points, magnified 4x so the profile is read
-    // in quarter points.
-    let scale: CGFloat = 4
-    let size = CGSize(width: 360, height: 180)
-    let image = try render(WidgetContainer { Color.white }, size: size, scale: scale)
+func measureCorner<V: View>(_ view: V,
+                            size: CGSize,
+                            scale: CGFloat,
+                            search: CGFloat) throws -> (left: (radius: Double, rms: Double),
+                                                        right: (radius: Double, rms: Double),
+                                                        width: Double,
+                                                        height: Double) {
+    let image = try render(view, size: size, scale: scale)
     let map = try bitmap(from: image)
 
-    // The plate is opaque (the fill is 0.94) and its drop shadow never gets
-    // past 0.45, so one threshold separates the two.
+    // The plate is opaque (the widget container fills at 0.94) and its drop
+    // shadow never gets past 0.45, so one threshold separates the two.
     let solid = 200
     var minX = map.width, maxX = -1, minY = map.height, maxY = -1
     for y in 0..<map.height {
@@ -375,13 +381,9 @@ func commandVerifyCorner() throws {
         throw RenderError.failed("no plate in the render: nothing measured above alpha \(solid)")
     }
 
-    // Bottom left, because the shadow is offset downwards and any halo it
-    // leaves is the same on both bottom corners: a fit that disagrees between
-    // them is measuring the shadow rather than the plate.
     func profile(bottomLeft: Bool) -> [(dy: Double, inset: Double)] {
         var samples: [(dy: Double, inset: Double)] = []
-        let span = Int(macOSWidgetCornerRadius * scale * 1.5)
-        for dy in 0..<span {
+        for dy in 0..<Int(search * scale * 1.5) {
             let y = maxY - dy
             guard y >= minY else { break }
             var inset = -1
@@ -401,7 +403,7 @@ func commandVerifyCorner() throws {
     /// Least squares against a circle, in points.
     func fit(_ samples: [(dy: Double, inset: Double)]) -> (radius: Double, rms: Double) {
         var best = (radius: 0.0, rms: Double.greatestFiniteMagnitude)
-        for quarter in 0...(Int(macOSWidgetCornerRadius) * 8) {
+        for quarter in 0...(Int(search) * 8) {
             let radius = Double(quarter) / 4 * Double(scale)
             var sum = 0.0
             for sample in samples {
@@ -416,20 +418,56 @@ func commandVerifyCorner() throws {
         return best
     }
 
-    let left = fit(profile(bottomLeft: true))
-    let right = fit(profile(bottomLeft: false))
-    print(String(format: "plate %.1f x %.1f pt  left=%.2f pt (rms %.2f px)  right=%.2f pt (rms %.2f px)",
-                 Double(maxX - minX + 1) / Double(scale), Double(maxY - minY + 1) / Double(scale),
-                 left.radius, left.rms, right.radius, right.rms))
+    return (fit(profile(bottomLeft: true)),
+            fit(profile(bottomLeft: false)),
+            Double(maxX - minX + 1) / Double(scale),
+            Double(maxY - minY + 1) / Double(scale))
+}
 
-    for (name, measured) in [("bottom left", left), ("bottom right", right)] {
-        guard abs(measured.radius - Double(macOSWidgetCornerRadius)) <= 1.5 else {
-            throw RenderError.failed(String(format: "%@ corner measures %.2f pt, macOS 27 draws %.2f +/- 1.5",
-                                            name, measured.radius, macOSWidgetCornerRadius))
-        }
-        guard measured.rms <= 3.0 else {
-            throw RenderError.failed(String(format: "%@ corner is not a rounded corner: rms %.2f px off a circle",
-                                            name, measured.rms))
+@MainActor
+func commandVerifyCorner() throws {
+    // The literals, not the constants being checked. A check that reads the
+    // constant it is checking passes at any value, which is how a 320 pt About
+    // panel once passed a 300 pt gate.
+    guard ClockStyle.containerCornerRadius == macOSWidgetCornerRadius else {
+        throw RenderError.failed(String(format: "containerCornerRadius is %.2f, macOS 27 draws %.2f around a widget",
+                                        ClockStyle.containerCornerRadius, macOSWidgetCornerRadius))
+    }
+    guard ClockStyle.panelCornerRadius == macOSPanelCornerRadius else {
+        throw RenderError.failed(String(format: "panelCornerRadius is %.2f, macOS 27 draws its menu bar panels at %.2f",
+                                        ClockStyle.panelCornerRadius, macOSPanelCornerRadius))
+    }
+
+    // Magnified 4x so the profile is read in quarter points. A medium widget is
+    // 360 x 180 points; the preview card is the popover's 340 less its 16 pt
+    // padding on each side, at the height SettingsView gives it.
+    let scale: CGFloat = 4
+    let widget = try measureCorner(WidgetContainer { Color.white },
+                                   size: CGSize(width: 360, height: 180),
+                                   scale: scale,
+                                   search: macOSWidgetCornerRadius)
+    let card = try measureCorner(
+        RoundedRectangle(cornerRadius: ClockStyle.panelCornerRadius, style: .continuous)
+            .fill(Color.white),
+        size: CGSize(width: 308, height: 92),
+        scale: scale,
+        search: macOSPanelCornerRadius)
+
+    for (name, measured, wanted) in [("widget plate", widget, macOSWidgetCornerRadius),
+                                     ("panel preview card", card, macOSPanelCornerRadius)] {
+        print(String(format: "%@ %.1f x %.1f pt  left=%.2f pt (rms %.2f px)  right=%.2f pt (rms %.2f px)",
+                     name, measured.width, measured.height,
+                     measured.left.radius, measured.left.rms,
+                     measured.right.radius, measured.right.rms))
+        for (corner, fitted) in [("bottom left", measured.left), ("bottom right", measured.right)] {
+            guard abs(fitted.radius - Double(wanted)) <= 1.5 else {
+                throw RenderError.failed(String(format: "%@ %@ corner measures %.2f pt, macOS 27 draws %.2f +/- 1.5",
+                                                name, corner, fitted.radius, wanted))
+            }
+            guard fitted.rms <= 3.0 else {
+                throw RenderError.failed(String(format: "%@ %@ corner is not a rounded corner: rms %.2f px off a circle",
+                                                name, corner, fitted.rms))
+            }
         }
     }
     print("G14_CORNER_OK")

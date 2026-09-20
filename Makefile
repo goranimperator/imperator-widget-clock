@@ -16,6 +16,24 @@ RELEASE_BUILD_NUMBER = $(shell git rev-list --count HEAD 2>/dev/null | awk '{pri
 # then renders as an empty widget.
 STAMP = $(shell echo $$(( $$(date +%s) - 1750000000 )))
 
+# AppKit picks which generation of a control it draws from the `sdk` field in
+# the binary's LC_BUILD_VERSION, and SwiftPM stamps that field from `platforms:`
+# in Package.swift rather than from the SDK it compiled against. Pinned to
+# macOS 14, this app therefore asked macOS 27 for macOS 14 era controls: the old
+# narrow switch with a round knob instead of today's capsule, and the previous
+# generation of NSPopover frame, which clips its content at 9.5 pt against the
+# 19.75 pt macOS 27 draws. That is why this app's popover looked unlike every
+# other Imperator app on the same machine.
+#
+# The minimum stays MIN_MACOS, so the app still installs on macOS 14. Only the
+# sdk field moves, through the linker. Verify on the built binary:
+#
+#   vtool -show-build-version "build/Imperator WidgetClock.app/Contents/MacOS/ImperatorClock"
+MIN_MACOS   = 14.0
+SDK_VERSION = $(shell xcrun --sdk macosx --show-sdk-version)
+PLATFORM_STAMP = -Xlinker -platform_version -Xlinker macos \
+	-Xlinker $(MIN_MACOS) -Xlinker $(SDK_VERSION)
+
 # Self-signed identity, not ad-hoc. Two reasons here. The app registers a login
 # item through SMAppService, and that registration is keyed to the bundle's
 # designated requirement. And WidgetKit caches the widget extension by its
@@ -36,9 +54,12 @@ app that holds its settings. Six colours including one you pick yourself, an \
 optional neon glow, and unlit strokes held at 25 percent so the face reads like \
 a real LCD. With Dim widgets on desktop turned on macOS draws every widget in \
 greyscale, which would turn a colour into its grey, so the face renders white \
-while that setting is on and picks the colour back up when it is off. The \
-preview in the popover now carries the same 30 point corner radius macOS 27 \
-draws around a desktop widget, so it shows the shape the desktop shows.
+while that setting is on and picks the colour back up when it is off. This \
+release redraws the settings panel the way macOS 27 draws its own menu bar \
+panels: a 17.5 point corner, measured off Control Centre's Wi-Fi panel, with no \
+arrow and no animation, and the preview card inside it follows that same \
+corner. The app also asks macOS for today's controls instead of macOS 14 era \
+ones, so its switches are the current shape.
 GATEKEEPER = Signed with a self-signed certificate and not notarized, so \
 Gatekeeper blocks the first launch: right-click the app and choose Open, or run \
 \`xattr -dr com.apple.quarantine \"/Applications/$(APP_NAME).app\"\`.
@@ -48,7 +69,7 @@ Gatekeeper blocks the first launch: right-click the app and choose Open, or run 
 all: build
 
 build:
-	swift build -c release
+	swift build -c release $(PLATFORM_STAMP)
 	@rm -rf "$(BUNDLE)"
 	@mkdir -p "$(BUNDLE)/Contents/MacOS" "$(BUNDLE)/Contents/Resources"
 	@mkdir -p "$(APPEX)/Contents/MacOS"
@@ -56,6 +77,22 @@ build:
 	cp Resources/Info.plist "$(BUNDLE)/Contents/Info.plist"
 	cp Resources/AppIcon.icns "$(BUNDLE)/Contents/Resources/AppIcon.icns"
 	cp ".build/release/$(WIDGET_NAME)" "$(APPEX)/Contents/MacOS/$(WIDGET_NAME)"
+	# The extension keeps the macOS 14 stamp while the app takes the real SDK.
+	# WidgetKit draws the face differently on the new one: with `sdk 27.0` in the
+	# appex every segment came out the same flat grey, lit and unlit alike, so
+	# the widget showed a uniform 88:88 with no ghosts and no readable time.
+	# Captured from the widget's own window both ways, through `killall chronod`
+	# and a forced reload, with nothing but this stamp different.
+	#
+	# It is not the tinted rendering path: a probe that drew the face red
+	# whenever `widgetRenderingMode` was not `.fullColor` produced no red at all
+	# on the new stamp, so the mode is still full colour and something else in
+	# the new WidgetKit flattens the two layers. Not chased further, because the
+	# app is where the popover lives and the extension draws no popover, so the
+	# two binaries have no reason to agree.
+	vtool -set-build-version macos $(MIN_MACOS) $(MIN_MACOS) -replace \
+		-output "$(APPEX)/Contents/MacOS/$(WIDGET_NAME)" \
+		"$(APPEX)/Contents/MacOS/$(WIDGET_NAME)"
 	cp Resources/WidgetInfo.plist "$(APPEX)/Contents/Info.plist"
 	# chronod caches a widget's descriptors against the extension's version, so a
 	# version that never moves means a reinstall keeps the old configuration.
@@ -88,14 +125,14 @@ run: build
 
 # Renders the face to PNGs for visual review. Nothing here ships.
 preview:
-	swift build -c release
+	swift build -c release $(PLATFORM_STAMP)
 	./.build/release/ClockPreview --render build/preview
 	open build/preview
 
 # Every runnable gate in GATES.md, in order. G8 is a visual review.
 gates: export SHELL := /bin/bash
 gates: build
-	@swift build -c release 2>&1 | grep -c "error:" | grep -qx 0 && echo G1_BUILD_OK
+	@swift build -c release $(PLATFORM_STAMP) 2>&1 | grep -c "error:" | grep -qx 0 && echo G1_BUILD_OK
 	@node scripts/check-config.mjs
 	@node scripts/check-upright.mjs
 	@./.build/release/ClockPreview --verify
@@ -103,6 +140,10 @@ gates: build
 		test $${PIPESTATUS[0]:-$$?} -eq 0
 	@./.build/release/ClockPreview --verify-corner | tail -1; \
 		test $${PIPESTATUS[0]:-$$?} -eq 0
+	@vtool -show-build-version "$(BUNDLE)/Contents/MacOS/$(BINARY_NAME)" \
+		| grep -q "sdk $(SDK_VERSION)" \
+		&& vtool -show-build-version "$(APPEX)/Contents/MacOS/$(WIDGET_NAME)" \
+		| grep -q "sdk $(MIN_MACOS)" && echo G15_SDK_STAMP_OK
 	@codesign --verify --deep --strict "$(BUNDLE)" \
 		&& codesign --verify --strict "$(APPEX)" && echo G5_SIGN_OK
 	@pluginkit -mAv -p com.apple.widgetkit-extension 2>/dev/null \
