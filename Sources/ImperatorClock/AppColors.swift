@@ -10,12 +10,6 @@ enum AppColors {
 }
 
 extension View {
-    func cursor(_ cursor: NSCursor) -> some View {
-        onHover { inside in
-            if inside { cursor.push() } else { NSCursor.pop() }
-        }
-    }
-
     func expandTapTarget() -> some View {
         contentShape(Rectangle())
     }
@@ -34,7 +28,6 @@ struct HoverButton<Label: View>: View {
             .opacity(isHovered ? 1.0 : 0.45)
             .animation(.easeInOut(duration: 0.2), value: isHovered)
             .onHover { isHovered = $0 }
-            .cursor(.pointingHand)
     }
 }
 

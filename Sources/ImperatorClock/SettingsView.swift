@@ -249,7 +249,6 @@ struct HourFormatPicker: View {
                         .expandTapTarget()
                 }
                 .buttonStyle(.plain)
-                .cursor(.pointingHand)
             }
         }
     }
@@ -303,7 +302,6 @@ struct SkinSwatch: View {
                 .shadow(color: isSelected ? color.opacity(0.9) : .clear, radius: 4)
         }
         .buttonStyle(.plain)
-        .cursor(.pointingHand)
         .help(help)
     }
 

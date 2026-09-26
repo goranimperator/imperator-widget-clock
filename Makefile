@@ -54,12 +54,11 @@ app that holds its settings. Six colours including one you pick yourself, an \
 optional neon glow, and unlit strokes held at 25 percent so the face reads like \
 a real LCD. With Dim widgets on desktop turned on macOS draws every widget in \
 greyscale, which would turn a colour into its grey, so the face renders white \
-while that setting is on and picks the colour back up when it is off. This \
-release redraws the settings panel the way macOS 27 draws its own menu bar \
-panels: a 17.5 point corner, measured off Control Centre's Wi-Fi panel, with no \
-arrow and no animation, and the preview card inside it follows that same \
-corner. The app also asks macOS for today's controls instead of macOS 14 era \
-ones, so its switches are the current shape.
+while that setting is on and picks the colour back up when it is off. The \
+settings panel is drawn the way macOS 27 draws its own menu bar panels: a 17.5 \
+point corner, no arrow and no animation. This release drops the pointing hand \
+cursor from the panel's controls, which macOS does not show over a switch or a \
+swatch either.
 GATEKEEPER = Signed with a self-signed certificate and not notarized, so \
 Gatekeeper blocks the first launch: right-click the app and choose Open, or run \
 \`xattr -dr com.apple.quarantine \"/Applications/$(APP_NAME).app\"\`.
