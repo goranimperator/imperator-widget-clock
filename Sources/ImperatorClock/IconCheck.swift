@@ -66,7 +66,13 @@ enum IconCheck {
         if let mine = box(of: icon, scale: 4), let term = box(of: terminal, scale: 4) {
             print(String(format: "frame 4x: clock %.3f x %.3f pt  terminal %.3f x %.3f pt",
                          mine[2], mine[3], term[2], term[3]))
-            expect(abs(mine[2] - term[2]) <= 0.25,
+            // One point of slack on width, and only upwards: this frame is an
+            // even 16 pt where the symbol inks 15.8125, because a 2pt colon can
+            // only be centred and crisp at once inside an even width. The
+            // symbol's own measurement lands on 15 or 16 at 4x depending on how
+            // its soft edge falls, which is why this is a band rather than an
+            // equality.
+            expect(mine[2] - term[2] >= -0.25 && mine[2] - term[2] <= 1.25,
                    "at 4x the frame is \(mine[2]) pt wide and the terminal symbol is \(term[2])")
             expect(abs(mine[3] - term[3]) <= 0.25,
                    "at 4x the frame is \(mine[3]) pt tall and the terminal symbol is \(term[3])")

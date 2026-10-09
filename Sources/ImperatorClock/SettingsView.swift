@@ -47,6 +47,9 @@ struct SettingsView: View {
             // not the sigil.
             Image(nsImage: SettingsView.headerIcon)
                 .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 15, height: 15)
                 .foregroundStyle(.primary)
             Text("Imperator WidgetClock")
                 .font(.headline)
@@ -56,9 +59,17 @@ struct SettingsView: View {
         .padding(.vertical, 12)
     }
 
-    /// Drawn once. The header is rebuilt on every settings change, and the
-    /// glyph never varies.
-    private static let headerIcon = StatusItemIcon.make(size: 16)
+    /// Drawn once at the menu bar size, then scaled to the header. The header
+    /// is rebuilt on every settings change and the glyph never varies.
+    ///
+    /// Drawn at 18 and shown in 15, not drawn at 16. The icon's frame is inset
+    /// inside its canvas, so asking for a 16pt canvas shrinks the frame to 14
+    /// and rounds the colon's dots down to a point each: in the header that
+    /// read as a cramped box with two specks. imperator-finder-terminal puts
+    /// `apple.terminal` in a 16pt frame with `scaledToFit`, which inks
+    /// 13.32 x 10.05; an 18pt canvas scaled into 15 inks 13.33 x 10.00, so the
+    /// two headers carry the same glyph at the same size.
+    private static let headerIcon = StatusItemIcon.make(size: 18)
 
     private var footer: some View {
         HStack(spacing: 12) {
