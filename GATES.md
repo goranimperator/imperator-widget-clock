@@ -57,20 +57,36 @@ Run every runnable gate with `make gates`.
       with the skin and neon values the app had just written, which is the
       sandboxed side proving it can reach the file.
 
-## G11 The menu bar icon matches its siblings and its colon is centred
-- [x] The drawn icon is the same size, border weight and corner radius as the
-      gamepad icon in imperator-free-games, and the colon sits dead centre
-      inside the outline on whole pixels.
+## G11 The menu bar icon is the terminal's frame and its colon is centred
+- [x] The drawn frame is the size and stroke of `apple.terminal`, the symbol
+      imperator-finder-terminal uses, and the colon sits dead centre inside it
+      on whole pixels.
       CHECK: ./.build/release/ImperatorClock --icon-check
       EXPECT: G11_ICON_OK
-      EVIDENCE: the check renders imperator-free-games' own gamepad SVG and
-      compares against the live drawing, not against copied numbers. Before:
-      canvas 23 x 16, ink 22.00 x 13.00 pt, corner inset 2.25 pt, colon 0.50 pt
-      right of centre. After: canvas 18 x 18, ink 16.50 x 10.50 pt, corner inset
-      1.50 pt, colon 0.000 pt off in x and y at 1x, 2x and 3x with no part-lit
-      pixels. The games icon measures 18 x 18 and 16.50 x 10.50 with a 1.50 pt
-      inset. Negative controls: a canvas back at 16pt failed on five counts, and
-      a colon nudged 0.5 pt failed on offset and on blur.
+      EVIDENCE: `frame 4x: clock 16.000 x 12.000 pt  terminal 16.000 x 12.000
+      pt`, `stroke 8x: clock 1.125 pt  terminal 1.125 pt`, and the colon
+      0.000 pt off centre in x and y at 1x, 2x and 3x with no part-lit pixels.
+      The check renders the symbol itself at its natural size and compares, so
+      the two icons can only drift apart deliberately.
+
+      Measured on the menu bar after installing, per pixel column, the two read
+      `233 215 233 ... 233 216 233` for the terminal and
+      `233 224 233 ... 233 224 233` for the clock: same height, same rows 9 to
+      20, both crisp. The clock is one pixel wider, 16 against 15, and that is
+      a choice rather than drift: the symbol's frame is an odd 15 px, and a 2pt
+      colon cannot be both centred and pixel-aligned inside an odd width.
+
+      Two earlier attempts are worth not repeating. Measuring the symbol after
+      `draw(in:)` into an 18pt box reads 15.50 pt tall, because that stretches
+      it; the bar draws it at its own point size and shows 12, so the icon came
+      out a third too tall. And compositing the symbol by hand instead of
+      drawing the frame put it on half pixels, which read a pixel wider and
+      soft on both sides.
+
+      Negative control: the frame set to 13.0 pt tall fails with `at 4x the ink
+      is 13.0 pt tall and the terminal symbol is 15.5` under the measurement
+      this gate used then; the current check fails the same way on size, stroke
+      or a colon off centre.
 
 ## G12 The About panel matches brandbook 10
 - [x] The footer carries About next to Quit, and the panel it opens is the size,

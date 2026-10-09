@@ -387,14 +387,30 @@ glyph turns to mush. The drawn icon is the clock's own face reduced to a
 display outline with a lit colon, which lands on whole pixels at any scale. It
 is a template image, so macOS inverts it for light and dark menu bars.
 
-The outline is not its own shape: it is the gamepad body from
-imperator-free-games, so the two apps sit side by side in the menu bar without
-one looking bigger than the other. That icon is Lucide's `gamepad` at 18pt, a
-24-unit viewBox holding `rect x=2 y=6 width=20 height=12 rx=2` at
-`stroke-width=2`. Everything in `StatusItemIcon` is one of those units scaled
-to `size`, which is why the numbers look arbitrary. The icon shipped at 23 x 16
-until this was matched up, against 18 x 18 everywhere else and in brandbook
-8.1.
+The outline is `apple.terminal`'s frame, the symbol imperator-finder-terminal
+puts in its status item, so the two apps sit side by side as the same box with
+different contents. Every number came off that symbol rendered at its natural
+size at 16x, not out of a header: it inks 15.8125 x 11.9375 pt inside a 19 x 14
+box, with a 1.0625 pt stroke and a corner profile that fits an outer radius of
+about 1.7. The icon shipped at 23 x 16 until this was matched up, against 18 x
+18 everywhere else and in brandbook 8.1.
+
+Two traps, both paid for on screen before they were understood. A symbol drawn
+with `draw(in:)` into an 18pt box is scaled to fill it and measures 15.50 pt
+tall; the menu bar draws it at its own point size and shows 12, so the first
+attempt at matching the height came out a third too tall. And AppKit snaps that
+symbol to the pixel grid when the bar draws it, while a copy placed by hand
+lands on half pixels: measured per column on the menu bar, the symbol reads
+`233 215 233 ... 233 216 233` and the hand-placed copy read
+`127 167 226 ... 225 166 123`, the same shape a pixel wider and soft on both
+sides.
+
+So the frame is drawn here, snapped to whole points: ink 16 x 12 at (1, 3) on
+the 18pt canvas, stroke 1.125, outer radius 1.7. 16 rather than the symbol's
+15.8125 because the width has to be even for a 2pt colon to be both centred and
+crisp, which leaves this frame one pixel wider than the terminal's at 1x. That
+is the whole remaining difference between them; height, row placement and
+stroke match.
 
 The colon has to share the canvas's parity to be both centred and crisp. A 2pt
 dot on a 23pt canvas cannot be, and `.rounded()` resolved the tie by moving it
