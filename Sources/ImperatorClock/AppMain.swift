@@ -29,6 +29,9 @@ struct ImperatorClockApp {
         if CommandLine.arguments.contains("--dim-check") {
             exit(DimCheck.run())
         }
+        if CommandLine.arguments.contains("--update-check") {
+            exit(UpdateCheck.run())
+        }
         if let index = CommandLine.arguments.firstIndex(of: "--report"),
            CommandLine.arguments.count > index + 1 {
             exit(StoreReport.run(path: CommandLine.arguments[index + 1]))
@@ -43,7 +46,8 @@ struct ImperatorClockApp {
                     .data(using: .utf8)!
             )
             let usage = "usage: ImperatorClock "
-                + "[--group-check|--widget-status|--icon-check|--about-check|--dim-check]\n"
+                + "[--group-check|--widget-status|--icon-check|--about-check|--dim-check"
+                + "|--update-check]\n"
                 + "       ImperatorClock --report <absolute path>\n"
             FileHandle.standardError.write(usage.data(using: .utf8)!)
             exit(2)

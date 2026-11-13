@@ -35,6 +35,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let watch = DimWatch(settings: settings)
         watch.start()
         dimWatch = watch
+        // One GET a day to GitHub's releases/latest, and the app's only network
+        // traffic. It is started here rather than from `init` so none of the
+        // `--*-check` flags, which exit before this runs, ever touch
+        // UNUserNotificationCenter: that refuses to work outside a real bundle
+        // and a gate run from `.build` would trip over it.
+        UpdateChecker.shared.start()
     }
 
     private func setUpStatusItem() {

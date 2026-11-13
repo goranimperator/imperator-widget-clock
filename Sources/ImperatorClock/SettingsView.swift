@@ -15,6 +15,11 @@ struct SettingsView: View {
 
     static let width: CGFloat = 340
 
+    /// The daily update check. Read here rather than from `UpdateChecker`
+    /// itself so the switch writes straight through to the same defaults key
+    /// the checker reads.
+    @AppStorage(UpdateChecker.enabledKey) private var checkForUpdates: Bool = true
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -25,6 +30,7 @@ struct SettingsView: View {
                 colourSection
                 glowSection
                 hourSection
+                updatesSection
             }
             .padding(16)
             Divider()
@@ -169,6 +175,71 @@ struct SettingsView: View {
     private var hourSection: some View {
         section("Hours") {
             HourFormatPicker(selection: $settings.hourFormat)
+        }
+    }
+
+    /// The update check: the switch, what the last check found, and a Check Now
+    /// that runs whatever the switch says, because pressing it is an explicit
+    /// request.
+    ///
+    /// Everything the check has to say goes in one line that is always one line
+    /// high. `MenuBarPanel` measures its content once, when it opens, so a
+    /// section that grows while the panel is up would push the footer out from
+    /// under the bottom edge: pressing Check Now is exactly the moment the text
+    /// changes. The notification is the channel that interrupts; this row only
+    /// has to be readable when the panel is already open.
+    private var updatesSection: some View {
+        section("Updates") {
+            VStack(alignment: .leading, spacing: 8) {
+                BrandToggle("Check for updates", isOn: $checkForUpdates)
+                    .onChange(of: checkForUpdates) { _, on in
+                        if on { UpdateChecker.shared.checkIfDue() }
+                    }
+                HStack(spacing: 12) {
+                    Text(updateStatus)
+                        .font(.system(size: 10))
+                        .foregroundStyle(UpdateChecker.shared.available == nil
+                                         ? AnyShapeStyle(.secondary)
+                                         : AnyShapeStyle(AppColors.brand))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 0)
+                    if let update = UpdateChecker.shared.available {
+                        HoverButton {
+                            UpdateChecker.open(update.page)
+                        } label: {
+                            Text("Download").font(.caption)
+                        }
+                        .help("Open the release page for \(update.version)")
+                    }
+                    HoverButton {
+                        Task { await UpdateChecker.shared.check() }
+                    } label: {
+                        Text("Check Now").font(.caption)
+                    }
+                    .disabled(UpdateChecker.shared.status == .checking)
+                }
+                Text("Once a day the app asks GitHub for its latest release and compares it "
+                     + "with this version. Nothing is sent but the app's name and version. "
+                     + "Installing an update is still up to you: unzip it over the old copy "
+                     + "and clear the quarantine flag the way you did the first time.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// One line, whatever the checker is doing. The version is in every case
+    /// because the panel has nowhere else that says which build this is.
+    private var updateStatus: String {
+        let current = UpdateChecker.currentVersion
+        switch UpdateChecker.shared.status {
+        case .idle: return "Version \(current)"
+        case .checking: return "Checking…"
+        case .upToDate: return "Up to date, version \(current)"
+        case .failed: return "Could not reach GitHub"
+        case .available(let release): return "\(release.version) is out, you have \(current)"
         }
     }
 

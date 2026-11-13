@@ -1,9 +1,18 @@
 // Gate G2: the five colours, the colour picker and the neon switch exist end to
 // end -- in the shared model, in the app's settings UI, and on the widget's
 // read path -- and the popover follows the Imperator apps brandbook.
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+/// Every Swift file under a directory, as repo-relative paths. Used to check a
+/// claim about the whole tree rather than about the files this script happens
+/// to name.
+function* globSwift(dir) {
+  for (const entry of readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })) {
+    if (entry.isDirectory()) yield* globSwift(`${dir}/${entry.name}`);
+    else if (entry.name.endsWith('.swift')) yield `${dir}/${entry.name}`;
+  }
+}
 const failures = [];
 const expect = (condition, message) => { if (!condition) failures.push(message); };
 
@@ -251,6 +260,84 @@ expect(/cornerRadius: ClockStyle\.containerCornerRadius/
   'the review render no longer uses ClockStyle.containerCornerRadius');
 expect(/macOSWidgetCornerRadius: CGFloat = 30/.test(read('Sources/ClockPreview/main.swift')),
   'the corner gate no longer measures against the literal 30');
+
+// The update check. One GET a day to this repo's releases/latest is the app's
+// only network traffic, and three separate promises hang off that sentence: the
+// slug has to be this app's, the request has to be the only one in the tree,
+// and the link that comes back out of it may only ever open github.com.
+const updateSource = read('Sources/ImperatorClock/UpdateChecker.swift');
+expect(/repoSlug = "goranimperator\/imperator-widget-clock"/.test(updateSource),
+  'UpdateChecker points at another app\'s repo, so it would compare against the wrong releases');
+expect(/api\.github\.com\/repos\/\\\(repoSlug\)\/releases\/latest/.test(updateSource),
+  'UpdateChecker no longer asks for releases/latest on its own repo');
+expect(/url\.scheme == "https", url\.host == "github\.com"/.test(updateSource),
+  'UpdateChecker.open no longer pins the link to https://github.com, and that URL comes '
+  + 'out of a network response');
+expect(/interval: TimeInterval = 24 \* 60 \* 60/.test(updateSource),
+  'the check is no longer once a day');
+// Only a successful, parsed response may count toward the day, or a GitHub
+// outage would cost the user a whole day of checks instead of an hour.
+expect(updateSource.indexOf('set(Date().timeIntervalSince1970, forKey: Self.lastCheckKey)')
+  > updateSource.indexOf('JSONDecoder().decode(LatestRelease.self'),
+  'the last-check timestamp is written before the response is parsed, so a failed check '
+  + 'would count toward the daily interval');
+expect(/string\(forKey: Self\.notifiedKey\) != release\.version/.test(updateSource),
+  'the notification is no longer once per version');
+// The permission question belongs to the moment there is something to say. At
+// first launch it is a prompt for a feature the user has not met yet.
+expect(updateSource.indexOf('requestAuthorization') > updateSource.indexOf('private func notifyOnce'),
+  'the notification permission is asked outside notifyOnce, so it would come up before '
+  + 'there is any update to report');
+// The whole tree, so a second request cannot appear somewhere the README does
+// not mention. The widget runs sandboxed with no network entitlement and has no
+// business asking GitHub anything.
+const networkFiles = [...globSwift('Sources')]
+  .filter((path) => path !== 'Sources/ImperatorClock/UpdateChecker.swift')
+  .filter((path) => /URLSession|URLRequest|NSURLConnection|CFSocket|Network\b/
+    .test(stripComments(read(path))));
+expect(networkFiles.length === 0,
+  `network code outside UpdateChecker: ${JSON.stringify(networkFiles)}, so "one request a `
+  + 'day" is no longer the whole story');
+expect(/UpdateChecker\.shared\.start\(\)/.test(appDelegateSource),
+  'the app never starts the update checker, so it would never check');
+// start() sets the notification delegate, and UNUserNotificationCenter refuses
+// to exist outside a real bundle, so a gate running the bare binary from
+// .build must reach its exit before this does.
+expect(/func applicationDidFinishLaunching[\s\S]*UpdateChecker\.shared\.start\(\)/
+  .test(appDelegateSource),
+  'the update checker starts somewhere other than applicationDidFinishLaunching');
+expect(/BrandToggle\("Check for updates", isOn: \$checkForUpdates\)/.test(settingsView),
+  'the panel has no switch for the update check');
+expect(/@AppStorage\(UpdateChecker\.enabledKey\)/.test(settingsView),
+  'the switch does not write the key the checker reads');
+expect(/Text\("Check Now"\)/.test(settingsView),
+  'the panel has no Check Now button');
+// Brandbook 7.1: one button style in these panels, and it is HoverButton. The
+// spec this was ported from used .bordered, which is the system style.
+expect(!/buttonStyle\(\.bordered\)/.test(settingsView),
+  'the Updates row uses the system bordered button rather than HoverButton');
+// The row is measured once, when the panel opens, so it has to stay one line
+// tall whatever the check finds. See updatesSection.
+expect(/Text\(updateStatus\)[\s\S]{0,320}?lineLimit\(1\)/.test(settingsView),
+  'the update status can wrap, and the panel sizes itself once, so a longer status would '
+  + 'push the footer off the bottom edge');
+// Installing is manual and meets Gatekeeper again, and the panel is where
+// someone stands when they press Download.
+expect(/quarantine flag/.test(settingsView),
+  'the panel no longer says a downloaded update has to clear quarantine again');
+
+// The README and CLAUDE.md both promised this app made no network requests at
+// all. Both now have to say what the one request is, or the next session reads
+// the checker as network code nobody asked for.
+const readme = read('README.md');
+expect(/api\.github\.com/.test(readme) && /releases\/latest/.test(readme),
+  'the README does not name the one request the app makes');
+expect(/notification/i.test(readme) && /quarantine/.test(readme),
+  'the README does not cover the notification permission or the quarantine flag on an update');
+const claudeMd = read('CLAUDE.md');
+expect(/UpdateChecker/.test(claudeMd) && /api\.github\.com/.test(claudeMd),
+  'CLAUDE.md does not document the update check, so the next session reads it as stray '
+  + 'network code');
 
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL ${failure}`);

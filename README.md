@@ -72,6 +72,7 @@ Everything lives in the menu bar panel, and everything applies to the widget:
 | Colour | Five presets, plus a sixth swatch, marked with a pen, that opens the system colour wheel. Only the lit segments take the colour; the unlit ones stay neutral grey |
 | Neon glow | Three stacked halos around the digits. The digits keep their colour |
 | Hours | System, 24-hour or 12-hour. System follows the locale |
+| Check for updates | Once a day the app asks GitHub whether a newer release is out. On by default. Check Now runs even with the switch off, because pressing it is an explicit request |
 | Open at Login | Registers a login item through `SMAppService` |
 
 Changing any of them writes the shared settings file and asks WidgetKit for a
@@ -98,6 +99,39 @@ stamp in the binary. `MenuBarPanel` is the same 17.5 pt surface every Imperator
 menu bar app draws, with no arrow and no animation, which is also what macOS
 does.
 
+## Updates
+
+The app tells you when a newer release is out. It does not install it.
+
+| What | How often | What it sends |
+|---|---|---|
+| Network | One request a day | A `GET` to `api.github.com/repos/goranimperator/imperator-widget-clock/releases/latest`, which is the app's only network traffic. It sends nothing but the app's name and version as the User-Agent GitHub requires. No telemetry, no analytics, nothing about you. Turn the daily check off in the panel's Updates section |
+| Notifications | Once per version | A local notification, posted by the app itself. The permission is asked for the first time there is an update to report, never at first launch, and macOS does not always put that prompt on screen for an app that lives in the menu bar and is never in the foreground. Either way the Updates row in the panel says what is out, so nothing depends on the notification |
+
+Version numbers are compared one component at a time, so 1.0.10 counts as newer
+than 1.0.9 rather than older, which is what a string comparison makes of it.
+`--update-check` runs that comparison against the six cases that have to come
+out right.
+
+A check only counts toward the day once GitHub has answered and the answer has
+parsed, so a failure is retried within the hour rather than costing a day. The
+hourly tick means a Mac that slept through the 24-hour mark checks soon after it
+wakes.
+
+Both the notification and the Download button open the release page and do
+nothing else. Installing is the same as the first time: unzip, replace the copy
+in `/Applications`, and clear the quarantine flag again, because a build
+downloaded in a browser carries it and this app is not notarized.
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Imperator WidgetClock.app"
+```
+
+Sparkle would install the update in place without that prompt. It was turned
+down: it is a third-party library in a family of apps that has none, and it
+needs an EdDSA signing key per app to look after. Worth revisiting alongside
+notarization, not before.
+
 ## Why the colon does not blink
 
 A WidgetKit widget is a still frame that the system renders in advance and swaps
@@ -123,14 +157,18 @@ targets:
 
 - **`ClockCore`** is the whole face: segment geometry, the lit and unlit paths,
   the colour and glow rules, and the app/widget settings contract.
-- **`ImperatorClock`** is the menu bar app. A status item and a settings
-  panel, nothing more. Two separate things keep it off the Dock and out of the
-  app switcher, and it needs both: `LSUIElement` in `Info.plist`, because
-  LaunchServices decides on the Dock tile before the process runs, and
-  `setActivationPolicy(.accessory)` for the switcher and for the panel to
-  behave as an accessory window. The menu bar icon is drawn rather than taken
-  from SF Symbols, and its outline is the gamepad body from imperator-free-games
-  so the two apps are the same size side by side.
+- **`ImperatorClock`** is the menu bar app: a status item, a settings panel and
+  the daily update check, and nothing else. Two separate things keep it off the
+  Dock and out of the app switcher, and it needs both: `LSUIElement` in
+  `Info.plist`, because LaunchServices decides on the Dock tile before the
+  process runs, and `setActivationPolicy(.accessory)` for the switcher and for
+  the panel to behave as an accessory window. The menu bar icon is drawn rather
+  than taken from SF Symbols, and its outline is `apple.terminal`'s frame, the
+  symbol imperator-finder-terminal puts in its status item, so the two apps sit
+  side by side as the same box with different contents. `UpdateChecker` lives
+  in this target rather than in `ClockCore`, because `ClockCore` links into the
+  widget extension and a sandboxed appex has no network entitlement and no
+  business asking GitHub anything.
 - **`ClockWidget`** is the widget extension. One widget, medium family only, one
   timeline entry per minute, 90 entries per request.
 - **`ClockPreview`** is a headless renderer that produces the review PNGs and
@@ -178,7 +216,11 @@ widget reaches it through a sandbox temporary exception in its entitlements.
 That exception is a plain entitlement and is not checked against a team ID,
 which is the difference that makes it work where the App Group did not.
 
-That file is the whole of the app's state.
+That file is everything the widget draws from, and almost all of the app's
+state. The rest is three `UserDefaults` keys that only the menu bar app reads:
+`checkForUpdates`, `lastUpdateCheck` and `notifiedUpdateVersion`. They stay out
+of the shared file on purpose, since the widget has no use for them and the
+file is the app and widget contract rather than a general settings store.
 
 The widget also writes a heartbeat next to it every time WidgetKit asks it for a
 timeline. It is the only evidence from outside that the extension really ran and

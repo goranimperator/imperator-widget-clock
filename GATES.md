@@ -300,6 +300,59 @@ Run every runnable gate with `make gates`.
       widgets render in greyscale and 1 for Never. Apple's Weather widget
       settled it: captured at 0 it has no colour in it.
 
+## G16 The update check finds a newer release and nothing else
+- [x] The version comparison is numeric per component, the request is one `GET`
+      a day to this repo's `releases/latest` and the only network call in the
+      tree, the timestamp is written only after a parsed response, the
+      notification permission is asked only when there is an update to report,
+      and the link that comes back may only open `https://github.com`.
+      CHECK: ./.build/release/ImperatorClock --update-check && node scripts/check-config.mjs
+      EXPECT: G16_UPDATE_CHECK_OK then G2_CONFIG_OK
+      EVIDENCE: `6 comparisons correct, string comparison fails the first one`.
+      The six cases are 1.0.10 vs 1.0.9, 1.0.9 vs 1.0.10, two equal versions,
+      1.1 vs 1.0.9, 1.0 vs 1.0.0 and 2.0.0 vs 1.9.9. Verified against a known
+      positive control: `isNewer` was replaced with `candidate > current`, the
+      lexicographic comparison the numeric one exists to avoid, and the check
+      failed on exactly the two cases that distinguish them before passing
+      again once it was put back.
+
+      The "only network call" half was verified the same way, with a decoy
+      `URLSession` declaration added to `Sources/ClockCore`: `FAIL network code
+      outside UpdateChecker: ["Sources/ClockCore/Decoy.swift"]`. That half is
+      what keeps the README's network row true, and it covers ClockCore for a
+      reason: ClockCore links into the widget appex, which runs sandboxed with
+      no network entitlement.
+
+      End to end against the real release, which no command can decide: the
+      installed bundle stamped `CFBundleShortVersionString 0.0.1` and re-signed,
+      without `--deep`, found v1.1.1 and wrote `lastUpdateCheck`, and the
+      panel's Updates row read `1.1.1 is out, you have 0.0.1` in brand red with
+      a Download button whose tooltip was `Open the release page for 1.1.1`,
+      captured from the panel's own window. The re-sign deliberately leaves the
+      appex alone: `--deep` would re-sign it without
+      `Resources/ClockWidget.entitlements` and strip the sandbox exception the
+      widget reads the settings file through, and
+      `codesign -d --entitlements -` on the appex confirmed both keys survived.
+
+      The switch was verified in both directions. With it off and
+      `lastUpdateCheck` cleared, a relaunch left the key unset. With it still
+      off, pressing Check Now wrote the key within seconds, which is the rule
+      that an explicit request runs whatever the switch says.
+
+      The notification half is **not** verified. macOS never put the
+      authorization prompt on screen: `usernotificationsd` logs
+      `Forwarding requestAuthorization: com.goranimperator.ImperatorClock` after
+      each check that found the update, the entitlement checks pass, and
+      nothing follows. `com.apple.ncprefs` holds no entry for this app, so the
+      status is still notDetermined, `notifiedUpdateVersion` stays unset and no
+      notification is posted. None of the other Imperator menu bar apps has an
+      ncprefs entry either. The likely reason is that this app is `LSUIElement`
+      and `.accessory` and is never frontmost, while the app this was ported
+      from has a window of its own: `activate` was tried from a script and the
+      app stayed in the background. Denying the permission is a supported state
+      by design, so the feature degrades to the in-app row, which is verified.
+      Anyone who sees the Allow prompt should say so here.
+
 ## G8 Visual review against the references
 - [x] MANUAL: rendered faces match the reference image's proportions (1:2.4),
       segment weight (0.22 of digit width), even gaps, upright digits, and a

@@ -64,8 +64,8 @@ Four targets:
   outlines, `ClockFace` turns a time into lit and unlit paths, `ClockStyle`
   carries the colour and the neon glow, `SharedStore` is the app/widget contract.
 - **`ImperatorClock`**: menu bar app (`LSUIElement`, `.accessory`). A status
-  item and a settings popover, nothing else. It draws nothing on the desktop;
-  the widget is the clock.
+  item, a settings panel and the daily update check, and nothing else. It draws
+  nothing on the desktop; the widget is the clock.
 - **`ClockWidget`**: the WidgetKit extension. One widget, medium family only,
   one timeline entry per minute, 90 entries per request. Everything it draws
   comes from the shared settings file.
@@ -422,6 +422,69 @@ can only drift apart deliberately.
 
 ```bash
 ./.build/release/ImperatorClock --icon-check
+```
+
+## The update check is the app's only network traffic
+
+`UpdateChecker` sends one `GET` a day to
+`api.github.com/repos/goranimperator/imperator-widget-clock/releases/latest`
+and compares the tag with `CFBundleShortVersionString`. That request is the whole
+of the app's networking. It carries nothing but the app's name and version as
+the User-Agent GitHub requires, and there is no analytics anywhere in the tree.
+Do not remove it as network code nobody asked for, and do not widen what it
+sends: G2 fails if a second `URLSession` appears anywhere under `Sources`,
+because "one request a day" is a promise the README makes.
+
+It lives in the app target. `ClockCore` links into the widget extension, which
+runs sandboxed with no network entitlement, so nothing that talks to GitHub may
+go there.
+
+Six things about it are load-bearing, each for a reason that cost something to
+find, and G2 holds each one:
+
+1. **Numeric comparison, component by component.** `1.0.10` is newer than
+   `1.0.9`; compared as strings it is older, so the one release where the patch
+   number reaches double figures is the one nobody hears about.
+   `--update-check` runs the six cases and a positive control proving a string
+   comparison fails them.
+2. **Only a successful, parsed response counts toward the day.** The timestamp
+   is written after the decode, so a GitHub outage costs an hour rather than a
+   day. The tick is hourly for the same reason, and so a Mac that slept through
+   the mark checks soon after it wakes.
+3. **The permission question waits until there is an update to report.** A
+   notification prompt at first launch is a prompt for a feature the user has
+   not met. Denying it leaves the panel's Updates row working.
+4. **One notification per version**, keyed on `notifiedUpdateVersion`.
+5. **The link only ever opens `https://github.com`.** It comes out of a network
+   response.
+6. **Installing stays manual.** Sparkle was turned down on 2026-11-07: a
+   third-party library in a family that has none, plus an EdDSA key per app to
+   guard. Revisit with notarization, not before.
+
+Overwriting a release, which this repo has done, makes `releases/latest` answer
+404 or point at the previous release for a moment. The checker treats that as a
+failed check, which is the right answer: it retries within the hour.
+
+One half is unproven, and it is the notification. Driven headlessly against the
+real v1.1.1 release, with the app stamped 0.0.1, the row appeared and
+`lastUpdateCheck` was written, but macOS never put the authorization prompt on
+screen. `usernotificationsd` logs
+`Forwarding requestAuthorization: com.goranimperator.ImperatorClock` and nothing
+after it, `com.apple.ncprefs` carries no entry for this app, and
+`notifiedUpdateVersion` stays unset, so nothing is posted. The app this was
+ported from has a window of its own and becomes frontmost; this one is
+`LSUIElement` and `.accessory` and never does, and `activate` from a script did
+not change that. Denying the permission is a supported state by design, so the
+feature falls back to the row, which does work. If the prompt does appear for
+someone, record it in G16 rather than assuming it always did.
+
+The Updates row in the panel is one line tall whatever the check finds, and it
+has to stay that way. `MenuBarPanel` measures its content once, when it opens,
+so a status that wraps while the panel is up pushes the footer off the bottom
+edge. Pressing Check Now is exactly when the text changes.
+
+```bash
+./.build/release/ImperatorClock --update-check
 ```
 
 ## The About panel
