@@ -112,7 +112,11 @@ struct SettingsView: View {
         Text("Could not save to \(SharedStore.directory.path). The widget will "
              + "keep showing its last saved settings.")
             .font(.system(size: 10))
-            .foregroundStyle(AppColors.brand)
+            // `.primary`, not brand red, for the same reason the update status
+            // is: #A01818 draws rgb(147,39,33) over this panel's rgb(81,81,81)
+            // and measures 1.04:1 against the 4.5:1 WCAG AA wants. A warning
+            // nobody can read is worse than a warning without a colour.
+            .foregroundStyle(.primary)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -196,11 +200,18 @@ struct SettingsView: View {
                         if on { UpdateChecker.shared.checkIfDue() }
                     }
                 HStack(spacing: 12) {
+                    // `.primary` when there is something to say, not brand red.
+                    // Measured on the real panel: #A01818 renders rgb(147,39,33)
+                    // over the popover material's rgb(81,81,81), which is a
+                    // contrast ratio of 1.04:1 against the 4.5:1 WCAG AA asks
+                    // for small text. The red was legible only as a hue
+                    // difference. The Download button beside it is what marks
+                    // the row as news.
                     Text(updateStatus)
                         .font(.system(size: 10))
                         .foregroundStyle(UpdateChecker.shared.available == nil
                                          ? AnyShapeStyle(.secondary)
-                                         : AnyShapeStyle(AppColors.brand))
+                                         : AnyShapeStyle(.primary))
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Spacer(minLength: 0)

@@ -65,7 +65,8 @@ xattr -dr com.apple.quarantine "/Applications/Imperator WidgetClock.app"
 
 ## Settings
 
-Everything lives in the menu bar panel, and everything applies to the widget:
+Everything lives in the menu bar panel. The first three settings are the face,
+and they go to the widget; the last two are the app's own:
 
 | Setting | What it does |
 |---|---|
@@ -75,11 +76,12 @@ Everything lives in the menu bar panel, and everything applies to the widget:
 | Check for updates | Once a day the app asks GitHub whether a newer release is out. On by default. Check Now runs even with the switch off, because pressing it is an explicit request |
 | Open at Login | Registers a login item through `SMAppService` |
 
-Changing any of them writes the shared settings file and asks WidgetKit for a
-fresh timeline, so the widget catches up at once rather than waiting out its
-current one. The writes are coalesced: dragging in the colour wheel fires
-continuously, and one reload per tick would spend the daily reload budget in a
-few seconds.
+Changing the colour, the glow or the hour format writes the shared settings file
+and asks WidgetKit for a fresh timeline, so the widget catches up at once rather
+than waiting out its current one. The writes are coalesced: dragging in the
+colour wheel fires continuously, and one reload per tick would spend the daily
+reload budget in a few seconds. The update switch and the login toggle never
+touch that file, because the widget has no use for either.
 
 The footer carries the login toggle on the left and About and Quit on the
 right. About opens a small panel with the icon, the version the build actually
@@ -106,7 +108,7 @@ The app tells you when a newer release is out. It does not install it.
 | What | How often | What it sends |
 |---|---|---|
 | Network | One request a day | A `GET` to `api.github.com/repos/goranimperator/imperator-widget-clock/releases/latest`, which is the app's only network traffic. It sends nothing but the app's name and version as the User-Agent GitHub requires. No telemetry, no analytics, nothing about you. Turn the daily check off in the panel's Updates section |
-| Notifications | Once per version | A local notification, posted by the app itself. The permission is asked for the first time there is an update to report, never at first launch, and macOS does not always put that prompt on screen for an app that lives in the menu bar and is never in the foreground. Either way the Updates row in the panel says what is out, so nothing depends on the notification |
+| Notifications | Once per version | A local notification, posted by the app itself. The permission is asked for the first time there is an update to report, never at first launch, and macOS may put that request in Notification Center rather than in front of you. Either way the Updates row in the panel says what is out, so nothing depends on the notification |
 
 Version numbers are compared one component at a time, so 1.0.10 counts as newer
 than 1.0.9 rather than older, which is what a string comparison makes of it.
@@ -176,10 +178,23 @@ targets:
   app icon: that is supplied artwork, and the renderer that used to generate it
   wrote over the file by default.
 
+`make run` builds and launches from `build/` without installing. `make preview`
+renders the face to `build/preview` and opens it. `make gates` runs every
+acceptance check in `GATES.md`. `make clean` removes `build` and `dist`.
+
 ```bash
-make run       # build and launch from build/ without installing
-make preview   # render the face to build/preview and open it
-make gates     # run every acceptance check in GATES.md
+make run
+```
+
+```bash
+make preview
+```
+
+```bash
+make gates
+```
+
+```bash
 make clean
 ```
 
@@ -229,9 +244,9 @@ what it read, and the acceptance check for the shared store reads it.
 ## Gates
 
 `GATES.md` is the acceptance ledger: one observable outcome per gate, each with
-the command that decides it. `make gates` runs every runnable one. Three of them
-need the app installed, and one of those three also needs the widget to be
-placed on the desktop.
+the command that decides it. `make gates` runs every runnable one. Four need the
+app installed, because they run the installed binary or ask `pluginkit` what is
+registered, and the live widget check also needs the card placed on the desktop.
 
 Registration is not accepted as proof of life. The extension was registered for
 hours at one point while exiting after 44 ms, so the live check reads the

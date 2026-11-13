@@ -346,12 +346,15 @@ Run every runnable gate with `make gates`.
       nothing follows. `com.apple.ncprefs` holds no entry for this app, so the
       status is still notDetermined, `notifiedUpdateVersion` stays unset and no
       notification is posted. None of the other Imperator menu bar apps has an
-      ncprefs entry either. The likely reason is that this app is `LSUIElement`
-      and `.accessory` and is never frontmost, while the app this was ported
-      from has a window of its own: `activate` was tried from a script and the
-      app stayed in the background. Denying the permission is a supported state
-      by design, so the feature degrades to the in-app row, which is verified.
-      Anyone who sees the Allow prompt should say so here.
+      ncprefs entry either. Two explanations fit and neither was tested: the
+      request may be sitting unanswered in Notification Center, which macOS
+      uses for that banner and which a scripted run never opens, or an
+      `LSUIElement` `.accessory` app that is never frontmost may not be shown
+      the prompt at all, unlike the app this was ported from, which has a
+      window of its own. `activate` from a script did not bring this one
+      forward. Denying the permission is a supported state by design, so the
+      feature degrades to the in-app row, which is verified. Open Notification
+      Center, look, and record the answer here.
 
 ## G8 Visual review against the references
 - [x] MANUAL: rendered faces match the reference image's proportions (1:2.4),

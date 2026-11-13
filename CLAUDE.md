@@ -471,12 +471,16 @@ real v1.1.1 release, with the app stamped 0.0.1, the row appeared and
 screen. `usernotificationsd` logs
 `Forwarding requestAuthorization: com.goranimperator.ImperatorClock` and nothing
 after it, `com.apple.ncprefs` carries no entry for this app, and
-`notifiedUpdateVersion` stays unset, so nothing is posted. The app this was
-ported from has a window of its own and becomes frontmost; this one is
-`LSUIElement` and `.accessory` and never does, and `activate` from a script did
-not change that. Denying the permission is a supported state by design, so the
-feature falls back to the row, which does work. If the prompt does appear for
-someone, record it in G16 rather than assuming it always did.
+`notifiedUpdateVersion` stays unset, so nothing is posted. Two explanations fit
+that evidence and neither has been tested, so do not write either one down as
+the cause: the request may be waiting unanswered in Notification Center, where
+macOS puts it as a banner and where a run driven by a script never looks, or an
+`LSUIElement` `.accessory` app that is never frontmost may not be shown the
+prompt at all, unlike the app this was ported from, which has a window of its
+own. `activate` from a script did not bring this one forward either way.
+Denying the permission is a supported state by design, so the feature falls
+back to the row, which does work. Settle it by opening Notification Center and
+looking, then record the answer in G16.
 
 The Updates row in the panel is one line tall whatever the check finds, and it
 has to stay that way. `MenuBarPanel` measures its content once, when it opens,

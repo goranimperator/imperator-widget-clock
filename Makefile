@@ -56,16 +56,15 @@ a real LCD. With Dim widgets on desktop turned on macOS draws every widget in \
 greyscale, which would turn a colour into its grey, so the face renders white \
 while that setting is on and picks the colour back up when it is off. The \
 settings panel is drawn the way macOS 27 draws its own menu bar panels: a 17.5 \
-point corner, no arrow and no animation. This release adds an update check. \
-Once a day the app asks GitHub for this repo's latest release and compares it \
-with the version you are running, and a newer one shows in the panel's Updates \
-section and arrives as one notification for that version. Both open the \
-release page. That request is the app's only network traffic and it sends \
-nothing but the app's name and version as the User-Agent GitHub requires: no \
-telemetry, no analytics, nothing about you. The daily check has a switch, and \
-Check Now beside it runs whatever the switch says. Installing an update is \
-still by hand, and a downloaded copy meets Gatekeeper again, so clear the \
-quarantine flag the same way you did the first time.
+point corner, no arrow and no animation. The update check that arrived in 1.1.2 \
+reads properly now. Its version line was drawn in Imperator red, which measures \
+1.04 to 1 against the panel behind it where the standard asks for 4.5, so it \
+came across as a hue rather than as text. It takes the panel's own foreground \
+colour now, at 6.8 to 1, and the Download button beside it is what marks the \
+row as news. The notice shown when the settings file cannot be written was the \
+same red and is fixed the same way. The README no longer claims that every \
+setting in the panel reaches the widget, because the update switch and the \
+login toggle do not.
 GATEKEEPER = Signed with a self-signed certificate and not notarized, so \
 Gatekeeper blocks the first launch: right-click the app and choose Open, or run \
 \`xattr -dr com.apple.quarantine \"/Applications/$(APP_NAME).app\"\`.
