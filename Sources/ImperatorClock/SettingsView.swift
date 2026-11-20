@@ -230,13 +230,6 @@ struct SettingsView: View {
                     }
                     .disabled(UpdateChecker.shared.status == .checking)
                 }
-                Text("Once a day the app asks GitHub for its latest release and compares it "
-                     + "with this version. Nothing is sent but the app's name and version. "
-                     + "Installing an update is still up to you: unzip it over the old copy "
-                     + "and clear the quarantine flag the way you did the first time.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

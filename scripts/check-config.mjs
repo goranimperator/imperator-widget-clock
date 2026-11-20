@@ -321,10 +321,6 @@ expect(!/buttonStyle\(\.bordered\)/.test(settingsView),
 expect(/Text\(updateStatus\)[\s\S]{0,320}?lineLimit\(1\)/.test(settingsView),
   'the update status can wrap, and the panel sizes itself once, so a longer status would '
   + 'push the footer off the bottom edge');
-// Installing is manual and meets Gatekeeper again, and the panel is where
-// someone stands when they press Download.
-expect(/quarantine flag/.test(settingsView),
-  'the panel no longer says a downloaded update has to clear quarantine again');
 
 // The README and CLAUDE.md both promised this app made no network requests at
 // all. Both now have to say what the one request is, or the next session reads

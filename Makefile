@@ -64,7 +64,8 @@ colour now, at 6.8 to 1, and the Download button beside it is what marks the \
 row as news. The notice shown when the settings file cannot be written was the \
 same red and is fixed the same way. The README no longer claims that every \
 setting in the panel reaches the widget, because the update switch and the \
-login toggle do not.
+login toggle do not. The paragraph under the Updates controls that explained the daily \
+check is gone from the panel; the README still covers it.
 GATEKEEPER = Signed with a self-signed certificate and not notarized, so \
 Gatekeeper blocks the first launch: right-click the app and choose Open, or run \
 \`xattr -dr com.apple.quarantine \"/Applications/$(APP_NAME).app\"\`.
